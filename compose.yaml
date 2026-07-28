@@ -1,0 +1,18 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      RAILS_ENV: development
+      SQLITE_DATABASE_PATH: /rails/storage/development.sqlite3
+    volumes:
+      - .:/rails
+      - rails_storage:/rails/storage
+      - rails_tmp:/rails/tmp
+
+volumes:
+  rails_storage:
+  rails_tmp:
