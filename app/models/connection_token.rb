@@ -1,0 +1,2 @@
+class ConnectionToken < ApplicationRecord
+end

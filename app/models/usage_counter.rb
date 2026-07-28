@@ -1,0 +1,2 @@
+class UsageCounter < ApplicationRecord
+end

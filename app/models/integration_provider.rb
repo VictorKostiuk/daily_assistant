@@ -1,0 +1,2 @@
+class IntegrationProvider < ApplicationRecord
+end

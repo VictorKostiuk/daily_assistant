@@ -1,0 +1,2 @@
+class PlanSubscription < ApplicationRecord
+end
