@@ -36,7 +36,15 @@ inside Docker. The `redis` service runs `redis-server --appendonly yes`, and
 Sidekiq reads queues from `config/sidekiq.yml`.
 
 The Telegram bot runs as the `telegram_bot` service and reads
-`TELEGRAM_BOT_TOKEN` from `.env`.
+`TELEGRAM_BOT_TOKEN` from `.env`. Its `/connect` button uses `APP_URL`, which
+defaults to `http://localhost:3000`. Telegram rejects inline buttons that point
+at `localhost`, so local development uses a callback button that replies with
+the URL as text; set `APP_URL` in `.env` to a public `https://...` URL when you
+want the button to open the app directly.
+Bot command handlers live in `app/services/telegram_bot/actions`, and bot copy
+lives in `config/locales/telegram_bot.en.yml`. In Docker development, the
+`telegram_bot` service watches those bot files and restarts only the bot process
+when they change.
 
 Useful commands:
 

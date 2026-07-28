@@ -2,11 +2,6 @@ en:
   app:
     name: "Daily Assistant"
 
-  telegram_bot:
-    fallback_name: "there"
-    start: "Hello, %{name} | Chat ID: %{chat_id}"
-    stop: "Bye, %{name} | Chat ID: %{chat_id}"
-
   pages:
     home:
       meta:

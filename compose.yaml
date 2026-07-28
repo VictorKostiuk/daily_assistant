@@ -1,12 +1,16 @@
+x-app-environment: &app-environment
+  APP_URL: ${APP_URL:-http://localhost:3000}
+  RAILS_ENV: development
+  REDIS_URL: redis://redis:6379/0
+  SQLITE_DATABASE_PATH: /rails/storage/development.sqlite3
+
 x-app: &app
   image: daily_assistant-web
   build:
     context: .
     dockerfile: Dockerfile.dev
   environment:
-    RAILS_ENV: development
-    REDIS_URL: redis://redis:6379/0
-    SQLITE_DATABASE_PATH: /rails/storage/development.sqlite3
+    <<: *app-environment
   volumes:
     - .:/rails
     - bundle:/usr/local/bundle
@@ -28,9 +32,11 @@ services:
 
   telegram_bot:
     <<: *app
-    command: ["./bin/rails", "runner", "TelegramBotRunner.start"]
-    env_file:
-      - .env
+    command: ["./bin/telegram-bot-dev"]
+    environment:
+      <<: *app-environment
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
 
   redis:
     image: redis:7-alpine

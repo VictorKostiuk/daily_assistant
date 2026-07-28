@@ -1,0 +1,10 @@
+en:
+  telegram_bot:
+    fallback_name: "there"
+    commands:
+      start: "Hello, %{name} | Chat ID: %{chat_id}"
+      stop: "Bye, %{name} | Chat ID: %{chat_id}"
+      connect:
+        message: "Connect services"
+        local_message: "Connect services: %{url}"
+        button: "Open Daily Assistant"

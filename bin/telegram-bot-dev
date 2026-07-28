@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+reload_interval="${TELEGRAM_BOT_RELOAD_INTERVAL:-1}"
+bot_pid=""
+
+watch_paths=(
+  "app/services/telegram_bot"
+  "config/initializers/telegram_bot.rb"
+  "config/locales/telegram_bot.en.yml"
+)
+
+snapshot() {
+  for path in "${watch_paths[@]}"; do
+    if [ -e "$path" ]; then
+      find "$path" -type f -print0
+    fi
+  done | sort -z | xargs -0 -r stat -c "%n:%Y:%s"
+}
+
+start_bot() {
+  ./bin/rails runner "TelegramBot::Runner.start" &
+  bot_pid="$!"
+  echo "Telegram bot process started: ${bot_pid}"
+}
+
+stop_bot() {
+  if [ -z "${bot_pid}" ] || ! kill -0 "${bot_pid}" 2>/dev/null; then
+    return
+  fi
+
+  kill -TERM "${bot_pid}" 2>/dev/null || true
+  wait "${bot_pid}" || true
+}
+
+shutdown() {
+  stop_bot
+  exit 0
+}
+
+trap shutdown INT TERM
+
+last_snapshot="$(snapshot)"
+start_bot
+
+while true; do
+  sleep "${reload_interval}"
+
+  if ! kill -0 "${bot_pid}" 2>/dev/null; then
+    wait "${bot_pid}"
+    exit "$?"
+  fi
+
+  current_snapshot="$(snapshot)"
+
+  if [ "${current_snapshot}" != "${last_snapshot}" ]; then
+    echo "Telegram bot files changed; restarting bot process"
+    stop_bot
+    last_snapshot="${current_snapshot}"
+    start_bot
+  fi
+done
