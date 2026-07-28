@@ -61,3 +61,6 @@ gem "devise", "~> 5.0"
 gem "telegram-bot-ruby"
 gem "ruby-openai"
 gem "sidekiq"
+
+gem "omniauth-google-oauth2"
+gem "google-apis-calendar_v3"

@@ -1,20 +1,23 @@
+<% icon_helpers = ApplicationController.helpers %>
 {
   "name": "DailyAssistant",
   "icons": [
+    <% if icon_helpers.public_asset_exists?("icon.svg") %>
     {
-      "src": "<%= public_icon_path("icon.svg") %>",
+      "src": "<%= icon_helpers.public_icon_path("icon.svg") %>",
       "type": "image/svg+xml",
       "sizes": "any"
     },
+    <% end %>
     {
-      "src": "<%= public_icon_path("icon.png") %>",
+      "src": "<%= icon_helpers.public_icon_path("icon.png") %>",
       "type": "image/png",
-      "sizes": "<%= public_png_dimensions("icon.png") %>"
+      "sizes": "<%= icon_helpers.public_png_dimensions("icon.png") %>"
     },
     {
-      "src": "<%= public_icon_path("icon.png") %>",
+      "src": "<%= icon_helpers.public_icon_path("icon.png") %>",
       "type": "image/png",
-      "sizes": "<%= public_png_dimensions("icon.png") %>",
+      "sizes": "<%= icon_helpers.public_png_dimensions("icon.png") %>",
       "purpose": "maskable"
     }
   ],

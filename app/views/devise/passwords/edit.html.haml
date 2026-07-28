@@ -4,7 +4,7 @@
   %div{ class: "mx-auto flex min-h-[calc(100vh-5rem)] max-w-md flex-col justify-center" }
     = link_to root_path, class: "mx-auto inline-flex items-center gap-3" do
       %span.flex.h-10.w-10.items-center.justify-center.rounded-lg.bg-white.shadow-sm.ring-1.ring-slate-200
-        = image_tag public_icon_path("icon.svg"), alt: "", class: "h-6 w-6"
+        = image_tag app_icon_path, alt: "", class: "h-6 w-6"
       %span.text-sm.font-semibold.text-slate-950= t("app.name")
 
     %div{ class: "mt-10 rounded-lg border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/70 sm:p-8" }

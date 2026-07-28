@@ -5,7 +5,7 @@
     .max-w-2xl
       = link_to root_path, class: "inline-flex items-center gap-3" do
         %span.flex.h-10.w-10.items-center.justify-center.rounded-lg.bg-white.shadow-sm.ring-1.ring-slate-200
-          = image_tag public_icon_path("icon.svg"), alt: "", class: "h-6 w-6"
+          = image_tag app_icon_path, alt: "", class: "h-6 w-6"
         %span.text-sm.font-semibold.text-slate-950= t("app.name")
       %p.mt-10.text-sm.font-semibold.text-emerald-700= t(".eyebrow")
       %h1.mt-4.text-4xl.font-semibold.leading-tight.text-slate-950.sm:text-5xl= t(".title")

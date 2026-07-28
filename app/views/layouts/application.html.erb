@@ -11,10 +11,12 @@
 
     <%= yield :head %>
 
-    <%= tag.link rel: "manifest", href: "#{pwa_manifest_path(format: :json)}?v=#{public_asset_version("icon.png")}" %>
+    <%= tag.link rel: "manifest", href: "#{pwa_manifest_path(format: :json)}?v=#{public_asset_version(app_icon_filename)}" %>
 
     <link rel="icon" href="<%= public_icon_path("icon.png") %>" type="image/png">
-    <link rel="icon" href="<%= public_icon_path("icon.svg") %>" type="image/svg+xml">
+    <% if public_asset_exists?("icon.svg") %>
+      <link rel="icon" href="<%= public_icon_path("icon.svg") %>" type="image/svg+xml">
+    <% end %>
     <link rel="apple-touch-icon" href="<%= public_icon_path("icon.png") %>">
 
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>

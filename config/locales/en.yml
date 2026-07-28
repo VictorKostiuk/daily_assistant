@@ -2,6 +2,82 @@ en:
   app:
     name: "Daily Assistant"
 
+  date:
+    formats:
+      long: "%B %-d, %Y"
+
+  time:
+    formats:
+      long: "%B %-d, %Y at %H:%M"
+
+  accounts:
+    show:
+      meta:
+        title: "Account - Daily Assistant"
+      eyebrow: "Account"
+      title: "Your Daily Assistant account"
+      subtitle: "Review profile details, service connections, and the places you will use to connect new integrations."
+      empty: "Not set"
+      status_value: "%{status}"
+      actions:
+        edit: "Edit account"
+        sign_out: "Sign out"
+      summary:
+        name: "Name"
+        email: "Email"
+        status: "Status"
+      profile:
+        title: "Account information"
+        subtitle: "These details identify your workspace and help the assistant personalize reminders and summaries."
+        edit: "Edit account"
+        fields:
+          time_zone: "Time zone"
+          locale: "Locale"
+          role: "Role"
+          member_since: "Member since"
+      services:
+        title: "Connected services"
+        subtitle: "Connection links will live here as each integration is added."
+        count:
+          one: "%{count} connected"
+          other: "%{count} connected"
+        cards:
+          telegram:
+            title: "Telegram"
+            description: "Use Telegram for reminders, digests, and quick assistant commands."
+            connected: "Connected"
+            not_connected: "Not connected"
+            cta: "Manage"
+          calendar:
+            title: "Calendar"
+            description: "Connect calendar providers so the assistant can read your day and suggest schedule changes."
+            status: "Coming soon"
+            cta: "Add link"
+          reminders:
+            title: "Reminders"
+            description: "Choose where reminders should arrive and how they should behave around quiet hours."
+            status: "Coming soon"
+            cta: "Add link"
+          digest:
+            title: "Daily digest"
+            description: "Configure delivery time, channels, and what should be included in each daily summary."
+            status: "Coming soon"
+            cta: "Add link"
+      telegram:
+        title: "Telegram account"
+        subtitle: "Current Telegram connection details will appear here after linking through the bot."
+        connected: "Connected"
+        not_connected: "Not connected"
+        no_username: "No username"
+        connect_hint: "Use /connect in the Telegram bot, or add the connection link here when that flow is ready."
+        fields:
+          chat_id: "Chat ID"
+          last_seen: "Last interaction"
+      next:
+        title: "Profile changes"
+        subtitle: "Keep the account overview clean and use the edit form only when profile or password values need to change."
+        cta: "Go to edit form"
+
   pages:
     home:
       meta:
@@ -160,7 +236,7 @@ en:
           submit: "Create account"
       edit:
         meta:
-          title: "Account - Daily Assistant"
+          title: "Edit account - Daily Assistant"
         title: "Account settings"
         subtitle: "Update your profile and password."
         form:
@@ -173,7 +249,7 @@ en:
           current_password: "Current password"
           current_password_hint: "Required to save account changes."
           submit: "Save changes"
-        back: "Back home"
+        back: "Back to account"
         cancel_account: "Cancel account"
         cancel_confirm: "Are you sure you want to cancel your account?"
     passwords:

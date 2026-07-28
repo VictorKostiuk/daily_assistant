@@ -9,6 +9,18 @@ module ApplicationHelper
     "/#{filename}?v=#{public_asset_version(filename)}"
   end
 
+  def public_asset_exists?(filename)
+    File.exist?(Rails.root.join("public", filename))
+  end
+
+  def app_icon_filename
+    public_asset_exists?("icon.svg") ? "icon.svg" : "icon.png"
+  end
+
+  def app_icon_path
+    public_icon_path(app_icon_filename)
+  end
+
   def public_png_dimensions(filename)
     path = Rails.root.join("public", filename)
     return "512x512" unless File.exist?(path)

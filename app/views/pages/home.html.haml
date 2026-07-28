@@ -4,7 +4,7 @@
   %header.mx-auto.flex.max-w-7xl.items-center.justify-between.px-6.py-5.lg:px-8
     = link_to root_path, class: "flex min-w-0 items-center gap-3" do
       %span.flex.h-10.w-10.shrink-0.items-center.justify-center.rounded-lg.bg-white.shadow-sm.ring-1.ring-slate-200
-        = image_tag public_icon_path("icon.svg"), alt: "", class: "h-6 w-6"
+        = image_tag app_icon_path, alt: "", class: "h-6 w-6"
       %span.truncate.text-sm.font-semibold.text-slate-950= t(".brand")
 
     %nav.hidden.items-center.gap-8.text-sm.font-medium.text-slate-600.md:flex{ "aria-label": t(".nav.label") }
@@ -14,7 +14,7 @@
 
     .hidden.items-center.gap-3.md:flex
       - if user_signed_in?
-        = link_to t(".nav.account"), edit_user_registration_path, class: "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+        = link_to t(".nav.account"), account_path, class: "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
         = button_to t(".nav.sign_out"), destroy_user_session_path, method: :delete, class: "rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
       - else
         = link_to t(".nav.sign_in"), new_user_session_path, class: "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
@@ -32,7 +32,7 @@
         %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#workflow" }= t(".nav.workflow")
         %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#early-access" }= t(".nav.access")
         - if user_signed_in?
-          = link_to edit_user_registration_path, class: "mt-2 block rounded-md border border-slate-200 px-3 py-2 font-semibold text-slate-800 transition hover:bg-stone-100" do
+          = link_to account_path, class: "mt-2 block rounded-md border border-slate-200 px-3 py-2 font-semibold text-slate-800 transition hover:bg-stone-100" do
             = t(".nav.account")
           = button_to t(".nav.sign_out"), destroy_user_session_path, method: :delete, class: "mt-2 w-full rounded-md bg-slate-950 px-3 py-2 text-left font-semibold text-white transition hover:bg-emerald-700"
         - else
