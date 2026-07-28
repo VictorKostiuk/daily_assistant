@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-docker compose run --rm web ./bin/rails "$@"
+service="${DAILY_ASSISTANT_SERVICE:-web}"
+
+if docker compose ps --services --filter "status=running" | grep -qx "$service"; then
+  docker compose exec "$service" ./bin/rails "$@"
+else
+  docker compose run --rm "$service" ./bin/rails "$@"
+fi

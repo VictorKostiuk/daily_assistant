@@ -2,14 +2,19 @@
   "name": "DailyAssistant",
   "icons": [
     {
-      "src": "/icon.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "src": "<%= public_icon_path("icon.svg") %>",
+      "type": "image/svg+xml",
+      "sizes": "any"
     },
     {
-      "src": "/icon.png",
+      "src": "<%= public_icon_path("icon.png") %>",
       "type": "image/png",
-      "sizes": "512x512",
+      "sizes": "<%= public_png_dimensions("icon.png") %>"
+    },
+    {
+      "src": "<%= public_icon_path("icon.png") %>",
+      "type": "image/png",
+      "sizes": "<%= public_png_dimensions("icon.png") %>",
       "purpose": "maskable"
     }
   ],

@@ -2,6 +2,11 @@ en:
   app:
     name: "Daily Assistant"
 
+  telegram_bot:
+    fallback_name: "there"
+    start: "Hello, %{name} | Chat ID: %{chat_id}"
+    stop: "Bye, %{name} | Chat ID: %{chat_id}"
+
   pages:
     home:
       meta:
@@ -12,7 +17,10 @@ en:
         features: "Features"
         workflow: "Workflow"
         access: "Access"
-        waitlist: "Join waitlist"
+        sign_in: "Sign in"
+        sign_up: "Create account"
+        account: "Account"
+        sign_out: "Sign out"
         open_menu: "Open menu"
       hero:
         eyebrow: "Private beta for calmer daily planning"
@@ -93,6 +101,102 @@ en:
         eyebrow: "Early access"
         title: "Build the assistant around your real day."
         subtitle: "Start with the core planning surface, then add integrations as the product grows."
-        cta: "Request access"
+        cta: "Create account"
       footer:
         tagline: "Calendar, reminders, digest, and support in one place."
+
+  activerecord:
+    attributes:
+      user:
+        email: "Email"
+        first_name: "First name"
+        last_name: "Last name"
+        password: "Password"
+        password_confirmation: "Password confirmation"
+        current_password: "Current password"
+
+  devise:
+    shared:
+      links:
+        sign_in: "Already have an account? Sign in"
+        sign_up: "Need an account? Create one"
+        forgot_password: "Forgot your password?"
+    sessions:
+      new:
+        meta:
+          title: "Sign in - Daily Assistant"
+        eyebrow: "Welcome back"
+        title: "Pick up today where you left off."
+        subtitle: "Sign in to see your daily digest, reminders, integrations, and schedule actions in one place."
+        proof_points:
+          - title: "Daily digest"
+            description: "A readable brief for the hours ahead."
+          - title: "Reminder flow"
+            description: "Tasks and events stay close to your day."
+          - title: "Integrations"
+            description: "Calendar and messaging context in one surface."
+        form:
+          title: "Sign in"
+          subtitle: "Use your email and password to continue."
+          email: "Email"
+          password: "Password"
+          forgot_password: "Reset password"
+          remember_me: "Remember me"
+          submit: "Sign in"
+    registrations:
+      new:
+        meta:
+          title: "Create account - Daily Assistant"
+        eyebrow: "Create your workspace"
+        title: "Start with a calmer planning surface."
+        subtitle: "Create an account to keep reminders, integrations, and daily summaries connected to your workday."
+        summary:
+          title: "Built for everyday planning"
+          description: "Begin with the core account, then connect channels and calendars as the assistant grows."
+        form:
+          title: "Create account"
+          subtitle: "Tell us who the workspace belongs to."
+          first_name: "First name"
+          last_name: "Last name"
+          email: "Email"
+          password: "Password"
+          password_hint: "%{count} characters minimum"
+          password_confirmation: "Confirm password"
+          submit: "Create account"
+      edit:
+        meta:
+          title: "Account - Daily Assistant"
+        title: "Account settings"
+        subtitle: "Update your profile and password."
+        form:
+          first_name: "First name"
+          last_name: "Last name"
+          email: "Email"
+          password: "New password"
+          password_hint: "Leave blank to keep your current password."
+          password_confirmation: "Confirm new password"
+          current_password: "Current password"
+          current_password_hint: "Required to save account changes."
+          submit: "Save changes"
+        back: "Back home"
+        cancel_account: "Cancel account"
+        cancel_confirm: "Are you sure you want to cancel your account?"
+    passwords:
+      new:
+        meta:
+          title: "Reset password - Daily Assistant"
+        title: "Reset your password"
+        subtitle: "Enter your email and we will send password reset instructions."
+        form:
+          email: "Email"
+          submit: "Send reset instructions"
+      edit:
+        meta:
+          title: "Choose new password - Daily Assistant"
+        title: "Choose a new password"
+        subtitle: "Set a fresh password for your account."
+        form:
+          password: "New password"
+          password_hint: "%{count} characters minimum"
+          password_confirmation: "Confirm new password"
+          submit: "Change password"

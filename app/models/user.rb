@@ -1,5 +1,9 @@
 class User < ApplicationRecord
-  has_secure_password
+  devise :database_authenticatable,
+         :registerable,
+         :recoverable,
+         :rememberable,
+         :validatable
 
   has_one :user_setting, dependent: :destroy
   has_one :reminder_preference, dependent: :destroy
@@ -32,10 +36,7 @@ class User < ApplicationRecord
 
   validates :first_name, presence: true, length: { minimum: 2 }
   validates :last_name, presence: true, length: { minimum: 2 }
-  validates :email, presence: true, uniqueness: true
-  validates :encrypted_password, presence: true
-
-   enum :role, {
+  enum :role, {
     member: 0,
     moderator: 1,
     admin: 2

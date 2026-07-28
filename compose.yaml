@@ -1,18 +1,50 @@
+x-app: &app
+  image: daily_assistant-web
+  build:
+    context: .
+    dockerfile: Dockerfile.dev
+  environment:
+    RAILS_ENV: development
+    REDIS_URL: redis://redis:6379/0
+    SQLITE_DATABASE_PATH: /rails/storage/development.sqlite3
+  volumes:
+    - .:/rails
+    - bundle:/usr/local/bundle
+    - rails_storage:/rails/storage
+    - rails_tmp:/rails/tmp
+  depends_on:
+    redis:
+      condition: service_healthy
+
 services:
   web:
-    build:
-      context: .
-      dockerfile: Dockerfile.dev
+    <<: *app
     ports:
       - "3000:3000"
-    environment:
-      RAILS_ENV: development
-      SQLITE_DATABASE_PATH: /rails/storage/development.sqlite3
+
+  sidekiq:
+    <<: *app
+    command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
+
+  telegram_bot:
+    <<: *app
+    command: ["./bin/rails", "runner", "TelegramBotRunner.start"]
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
     volumes:
-      - .:/rails
-      - rails_storage:/rails/storage
-      - rails_tmp:/rails/tmp
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
+  bundle:
+  redis_data:
   rails_storage:
   rails_tmp:

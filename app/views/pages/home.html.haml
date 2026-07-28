@@ -4,7 +4,7 @@
   %header.mx-auto.flex.max-w-7xl.items-center.justify-between.px-6.py-5.lg:px-8
     = link_to root_path, class: "flex min-w-0 items-center gap-3" do
       %span.flex.h-10.w-10.shrink-0.items-center.justify-center.rounded-lg.bg-white.shadow-sm.ring-1.ring-slate-200
-        = image_tag "/icon.svg", alt: "", class: "h-6 w-6"
+        = image_tag public_icon_path("icon.svg"), alt: "", class: "h-6 w-6"
       %span.truncate.text-sm.font-semibold.text-slate-950= t(".brand")
 
     %nav.hidden.items-center.gap-8.text-sm.font-medium.text-slate-600.md:flex{ "aria-label": t(".nav.label") }
@@ -12,8 +12,13 @@
       %a.transition.hover:text-slate-950{ href: "#workflow" }= t(".nav.workflow")
       %a.transition.hover:text-slate-950{ href: "#early-access" }= t(".nav.access")
 
-    = link_to "#early-access", class: "hidden rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 md:inline-flex" do
-      = t(".nav.waitlist")
+    .hidden.items-center.gap-3.md:flex
+      - if user_signed_in?
+        = link_to t(".nav.account"), edit_user_registration_path, class: "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+        = button_to t(".nav.sign_out"), destroy_user_session_path, method: :delete, class: "rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+      - else
+        = link_to t(".nav.sign_in"), new_user_session_path, class: "rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+        = link_to t(".nav.sign_up"), new_user_registration_path, class: "rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
 
     %details.relative.md:hidden
       %summary.flex.h-10.w-10.cursor-pointer.list-none.items-center.justify-center.rounded-lg.bg-white.text-slate-900.shadow-sm.ring-1.ring-slate-200.transition.hover:bg-slate-50{ "aria-label": t(".nav.open_menu") }
@@ -26,8 +31,15 @@
         %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#features" }= t(".nav.features")
         %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#workflow" }= t(".nav.workflow")
         %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#early-access" }= t(".nav.access")
-        = link_to "#early-access", class: "mt-2 flex rounded-md bg-slate-950 px-3 py-2 font-semibold text-white transition hover:bg-emerald-700" do
-          = t(".nav.waitlist")
+        - if user_signed_in?
+          = link_to edit_user_registration_path, class: "mt-2 block rounded-md border border-slate-200 px-3 py-2 font-semibold text-slate-800 transition hover:bg-stone-100" do
+            = t(".nav.account")
+          = button_to t(".nav.sign_out"), destroy_user_session_path, method: :delete, class: "mt-2 w-full rounded-md bg-slate-950 px-3 py-2 text-left font-semibold text-white transition hover:bg-emerald-700"
+        - else
+          = link_to new_user_session_path, class: "mt-2 block rounded-md border border-slate-200 px-3 py-2 font-semibold text-slate-800 transition hover:bg-stone-100" do
+            = t(".nav.sign_in")
+          = link_to new_user_registration_path, class: "mt-2 flex rounded-md bg-slate-950 px-3 py-2 font-semibold text-white transition hover:bg-emerald-700" do
+            = t(".nav.sign_up")
 
   %main
     %section{ class: "mx-auto grid max-w-7xl items-center gap-12 px-6 pb-14 pt-8 sm:pt-12 lg:grid-cols-[1fr_520px] lg:px-8 lg:pb-20 lg:pt-16" }
@@ -39,7 +51,7 @@
         %p.mt-6.max-w-2xl.text-base.leading-8.text-slate-600.sm:text-lg
           = t(".hero.subtitle")
         .mt-8.flex.flex-col.gap-3.sm:flex-row
-          = link_to "#early-access", class: "inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700" do
+          = link_to new_user_registration_path, class: "inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700" do
             = t(".hero.primary_cta")
           = link_to "#features", class: "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50" do
             = t(".hero.secondary_cta")
@@ -139,7 +151,7 @@
           %p.text-sm.font-semibold.text-emerald-300= t(".early_access.eyebrow")
           %h2.mt-3.text-3xl.font-semibold.leading-tight= t(".early_access.title")
           %p.mt-4.text-base.leading-7.text-slate-300= t(".early_access.subtitle")
-        = link_to t(".early_access.cta"), "mailto:hello@example.com", class: "inline-flex w-full items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-100 sm:w-auto"
+        = link_to t(".early_access.cta"), new_user_registration_path, class: "inline-flex w-full items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-100 sm:w-auto"
 
   %footer.border-t.border-slate-200.bg-white.py-6
     .mx-auto.flex.max-w-7xl.flex-col.gap-3.px-6.text-sm.text-slate-500.sm:flex-row.sm:items-center.sm:justify-between.lg:px-8

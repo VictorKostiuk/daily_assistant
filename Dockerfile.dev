@@ -18,9 +18,10 @@ RUN gem install bundler -v 2.7.2
 COPY Gemfile Gemfile.lock ./
 RUN bundle install
 
-COPY . .
+COPY bin/docker-dev-entrypoint /usr/local/bin/docker-dev-entrypoint
+RUN chmod +x /usr/local/bin/docker-dev-entrypoint
 
-ENTRYPOINT ["/rails/bin/docker-dev-entrypoint"]
+ENTRYPOINT ["/usr/local/bin/docker-dev-entrypoint"]
 
 EXPOSE 3000
 CMD ["./bin/rails", "server", "-b", "0.0.0.0"]
