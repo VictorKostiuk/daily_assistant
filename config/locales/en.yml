@@ -1,31 +1,98 @@
-# Files in the config/locales directory are used for internationalization and
-# are automatically loaded by Rails. If you want to use locales other than
-# English, add the necessary files in this directory.
-#
-# To use the locales, use `I18n.t`:
-#
-#     I18n.t "hello"
-#
-# In views, this is aliased to just `t`:
-#
-#     <%= t("hello") %>
-#
-# To use a different locale, set it with `I18n.locale`:
-#
-#     I18n.locale = :es
-#
-# This would use the information in config/locales/es.yml.
-#
-# To learn more about the API, please read the Rails Internationalization guide
-# at https://guides.rubyonrails.org/i18n.html.
-#
-# Be aware that YAML interprets the following case-insensitive strings as
-# booleans: `true`, `false`, `on`, `off`, `yes`, `no`. Therefore, these strings
-# must be quoted to be interpreted as strings. For example:
-#
-#     en:
-#       "yes": yup
-#       enabled: "ON"
-
 en:
-  hello: "Hello world"
+  app:
+    name: "Daily Assistant"
+
+  pages:
+    home:
+      meta:
+        title: "Daily Assistant"
+      brand: "Daily Assistant"
+      nav:
+        label: "Primary navigation"
+        features: "Features"
+        workflow: "Workflow"
+        access: "Access"
+        waitlist: "Join waitlist"
+        open_menu: "Open menu"
+      hero:
+        eyebrow: "Private beta for calmer daily planning"
+        title: "Daily Assistant"
+        subtitle: "A focused home for your schedule, reminders, integrations, and daily digest. Keep the day visible without turning planning into another job."
+        primary_cta: "Start planning"
+        secondary_cta: "See features"
+        stats:
+          digest:
+            value: "08:30"
+            label: "Digest ready"
+          integrations:
+            value: "4"
+            label: "Integrations"
+          reminders:
+            value: "12"
+            label: "Reminders"
+      preview:
+        initials: "DA"
+        title: "Today"
+        date: "Tuesday, July 28"
+        status: "Synced"
+        items:
+          digest:
+            title: "Morning digest"
+            description: "3 meetings, 2 reminders, and a quiet block before lunch."
+            time: "08:30"
+          calendar:
+            title: "Calendar cleanup"
+            description: "Move low-priority calls out of the focus window."
+            time: "11:00"
+          telegram:
+            title: "Telegram reminder"
+            description: "Send a summary before the evening review."
+            time: "18:15"
+        metrics:
+          queue:
+            label: "Queue"
+            value: "6"
+          sent:
+            label: "Sent"
+            value: "18"
+          saved:
+            label: "Saved"
+            value: "42m"
+      features:
+        eyebrow: "Features"
+        title: "Everything your day keeps asking for."
+        subtitle: "Calendar context, reminders, shortcuts, and digest delivery stay in one calm workspace."
+        cards:
+          digest:
+            number: "01"
+            title: "Daily digest"
+            description: "Get the next few hours, reminders, and open loops in one readable brief."
+          calendar:
+            number: "02"
+            title: "Calendar actions"
+            description: "Keep meetings, quiet hours, and schedule changes close to the assistant."
+          reminders:
+            number: "03"
+            title: "Smart reminders"
+            description: "Deliver reminders through the channels that actually fit the moment."
+      workflow:
+        eyebrow: "Workflow"
+        title: "From request to done."
+        subtitle: "The assistant keeps a simple trail of what happened, what changed, and what still needs attention."
+        cards:
+          capture:
+            title: "Capture"
+            description: "Drop in a reminder, event, shortcut, or support request."
+          coordinate:
+            title: "Coordinate"
+            description: "Connect calendar and message providers without losing the thread."
+          confirm:
+            title: "Confirm"
+            description: "See status, delivery attempts, and audit history when it matters."
+      early_access:
+        eyebrow: "Early access"
+        title: "Build the assistant around your real day."
+        subtitle: "Start with the core planning surface, then add integrations as the product grows."
+        cta: "Request access"
+      footer:
+        tagline: "Calendar, reminders, digest, and support in one place."

@@ -1,0 +1,147 @@
+- content_for :title, t(".meta.title")
+
+%section.min-h-screen.bg-stone-50
+  %header.mx-auto.flex.max-w-7xl.items-center.justify-between.px-6.py-5.lg:px-8
+    = link_to root_path, class: "flex min-w-0 items-center gap-3" do
+      %span.flex.h-10.w-10.shrink-0.items-center.justify-center.rounded-lg.bg-white.shadow-sm.ring-1.ring-slate-200
+        = image_tag "/icon.svg", alt: "", class: "h-6 w-6"
+      %span.truncate.text-sm.font-semibold.text-slate-950= t(".brand")
+
+    %nav.hidden.items-center.gap-8.text-sm.font-medium.text-slate-600.md:flex{ "aria-label": t(".nav.label") }
+      %a.transition.hover:text-slate-950{ href: "#features" }= t(".nav.features")
+      %a.transition.hover:text-slate-950{ href: "#workflow" }= t(".nav.workflow")
+      %a.transition.hover:text-slate-950{ href: "#early-access" }= t(".nav.access")
+
+    = link_to "#early-access", class: "hidden rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 md:inline-flex" do
+      = t(".nav.waitlist")
+
+    %details.relative.md:hidden
+      %summary.flex.h-10.w-10.cursor-pointer.list-none.items-center.justify-center.rounded-lg.bg-white.text-slate-900.shadow-sm.ring-1.ring-slate-200.transition.hover:bg-slate-50{ "aria-label": t(".nav.open_menu") }
+        %span.sr-only= t(".nav.open_menu")
+        %span.flex.h-5.w-5.flex-col.justify-center.gap-1
+          %span.block.h-0.5.w-5.rounded-full.bg-current
+          %span.block.h-0.5.w-5.rounded-full.bg-current
+          %span.block.h-0.5.w-5.rounded-full.bg-current
+      .absolute.right-0.z-50.mt-3.w-56.rounded-lg.border.border-slate-200.bg-white.p-2.text-sm.font-medium.text-slate-700.shadow-xl.shadow-slate-200
+        %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#features" }= t(".nav.features")
+        %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#workflow" }= t(".nav.workflow")
+        %a.block.rounded-md.px-3.py-2.transition.hover:bg-stone-100.hover:text-slate-950{ href: "#early-access" }= t(".nav.access")
+        = link_to "#early-access", class: "mt-2 flex rounded-md bg-slate-950 px-3 py-2 font-semibold text-white transition hover:bg-emerald-700" do
+          = t(".nav.waitlist")
+
+  %main
+    %section{ class: "mx-auto grid max-w-7xl items-center gap-12 px-6 pb-14 pt-8 sm:pt-12 lg:grid-cols-[1fr_520px] lg:px-8 lg:pb-20 lg:pt-16" }
+      .max-w-3xl
+        %p.inline-flex.max-w-full.rounded-full.border.border-emerald-200.bg-emerald-50.px-3.py-1.text-sm.font-medium.text-emerald-800
+          = t(".hero.eyebrow")
+        %h1.mt-6.max-w-3xl.text-4xl.font-semibold.leading-tight.text-slate-950.sm:text-5xl.md:text-6xl
+          = t(".hero.title")
+        %p.mt-6.max-w-2xl.text-base.leading-8.text-slate-600.sm:text-lg
+          = t(".hero.subtitle")
+        .mt-8.flex.flex-col.gap-3.sm:flex-row
+          = link_to "#early-access", class: "inline-flex items-center justify-center rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700" do
+            = t(".hero.primary_cta")
+          = link_to "#features", class: "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50" do
+            = t(".hero.secondary_cta")
+
+        .mt-10.grid.max-w-xl.grid-cols-3.gap-4.border-t.border-slate-200.pt-6
+          .min-w-0
+            %p.text-2xl.font-semibold.text-slate-950= t(".hero.stats.digest.value")
+            %p.mt-1.text-sm.text-slate-500= t(".hero.stats.digest.label")
+          .min-w-0
+            %p.text-2xl.font-semibold.text-slate-950= t(".hero.stats.integrations.value")
+            %p.mt-1.text-sm.text-slate-500= t(".hero.stats.integrations.label")
+          .min-w-0
+            %p.text-2xl.font-semibold.text-slate-950= t(".hero.stats.reminders.value")
+            %p.mt-1.text-sm.text-slate-500= t(".hero.stats.reminders.label")
+
+      %div{ class: "rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-slate-200/70" }
+        .flex.items-center.justify-between.border-b.border-slate-100.pb-4
+          .flex.items-center.gap-3
+            %span.flex.h-9.w-9.items-center.justify-center.rounded-lg.bg-emerald-100.text-sm.font-bold.text-emerald-800= t(".preview.initials")
+            .min-w-0
+              %p.text-sm.font-semibold.text-slate-950= t(".preview.title")
+              %p.text-xs.text-slate-500= t(".preview.date")
+          %span.rounded-full.bg-sky-50.px-3.py-1.text-xs.font-medium.text-sky-700= t(".preview.status")
+
+        .grid.gap-4.pt-4
+          .rounded-lg.bg-slate-50.p-4
+            .flex.items-start.justify-between.gap-4
+              .min-w-0
+                %p.text-sm.font-semibold.text-slate-950= t(".preview.items.digest.title")
+                %p.mt-1.text-sm.leading-6.text-slate-600= t(".preview.items.digest.description")
+              %span.rounded-md.bg-white.px-2.py-1.text-xs.font-medium.text-slate-500= t(".preview.items.digest.time")
+          .rounded-lg.bg-emerald-50.p-4
+            .flex.items-start.justify-between.gap-4
+              .min-w-0
+                %p.text-sm.font-semibold.text-emerald-950= t(".preview.items.calendar.title")
+                %p.mt-1.text-sm.leading-6.text-emerald-800= t(".preview.items.calendar.description")
+              %span.rounded-md.bg-white.px-2.py-1.text-xs.font-medium.text-emerald-700= t(".preview.items.calendar.time")
+          .rounded-lg.bg-amber-50.p-4
+            .flex.items-start.justify-between.gap-4
+              .min-w-0
+                %p.text-sm.font-semibold.text-amber-950= t(".preview.items.telegram.title")
+                %p.mt-1.text-sm.leading-6.text-amber-800= t(".preview.items.telegram.description")
+              %span.rounded-md.bg-white.px-2.py-1.text-xs.font-medium.text-amber-700= t(".preview.items.telegram.time")
+
+        .mt-4.grid.grid-cols-3.gap-3
+          .rounded-lg.border.border-slate-200.p-3
+            %p.text-xs.font-medium.text-slate-500= t(".preview.metrics.queue.label")
+            %p.mt-2.text-xl.font-semibold.text-slate-950= t(".preview.metrics.queue.value")
+          .rounded-lg.border.border-slate-200.p-3
+            %p.text-xs.font-medium.text-slate-500= t(".preview.metrics.sent.label")
+            %p.mt-2.text-xl.font-semibold.text-slate-950= t(".preview.metrics.sent.value")
+          .rounded-lg.border.border-slate-200.p-3
+            %p.text-xs.font-medium.text-slate-500= t(".preview.metrics.saved.label")
+            %p.mt-2.text-xl.font-semibold.text-slate-950= t(".preview.metrics.saved.value")
+
+    %section#features.border-t.border-slate-200.bg-white.py-16
+      .mx-auto.max-w-7xl.px-6.lg:px-8
+        .max-w-2xl
+          %p.text-sm.font-semibold.text-emerald-700= t(".features.eyebrow")
+          %h2.mt-3.text-3xl.font-semibold.leading-tight.text-slate-950= t(".features.title")
+          %p.mt-4.text-base.leading-7.text-slate-600= t(".features.subtitle")
+
+        .mt-10.grid.gap-4.md:grid-cols-3
+          %article.rounded-lg.border.border-slate-200.bg-stone-50.p-6
+            %span.flex.h-10.w-10.items-center.justify-center.rounded-lg.bg-emerald-100.text-sm.font-bold.text-emerald-800= t(".features.cards.digest.number")
+            %h3.mt-5.text-base.font-semibold.text-slate-950= t(".features.cards.digest.title")
+            %p.mt-3.text-sm.leading-6.text-slate-600= t(".features.cards.digest.description")
+          %article.rounded-lg.border.border-slate-200.bg-stone-50.p-6
+            %span.flex.h-10.w-10.items-center.justify-center.rounded-lg.bg-sky-100.text-sm.font-bold.text-sky-800= t(".features.cards.calendar.number")
+            %h3.mt-5.text-base.font-semibold.text-slate-950= t(".features.cards.calendar.title")
+            %p.mt-3.text-sm.leading-6.text-slate-600= t(".features.cards.calendar.description")
+          %article.rounded-lg.border.border-slate-200.bg-stone-50.p-6
+            %span.flex.h-10.w-10.items-center.justify-center.rounded-lg.bg-rose-100.text-sm.font-bold.text-rose-800= t(".features.cards.reminders.number")
+            %h3.mt-5.text-base.font-semibold.text-slate-950= t(".features.cards.reminders.title")
+            %p.mt-3.text-sm.leading-6.text-slate-600= t(".features.cards.reminders.description")
+
+    %section#workflow.bg-stone-50.py-16
+      %div{ class: "mx-auto grid max-w-7xl gap-8 px-6 lg:grid-cols-[360px_1fr] lg:px-8" }
+        .max-w-sm
+          %p.text-sm.font-semibold.text-emerald-700= t(".workflow.eyebrow")
+          %h2.mt-3.text-3xl.font-semibold.leading-tight.text-slate-950= t(".workflow.title")
+          %p.mt-4.text-base.leading-7.text-slate-600= t(".workflow.subtitle")
+        .grid.gap-4.md:grid-cols-3
+          .rounded-lg.border.border-slate-200.bg-white.p-5
+            %p.text-sm.font-semibold.text-slate-950= t(".workflow.cards.capture.title")
+            %p.mt-3.text-sm.leading-6.text-slate-600= t(".workflow.cards.capture.description")
+          .rounded-lg.border.border-slate-200.bg-white.p-5
+            %p.text-sm.font-semibold.text-slate-950= t(".workflow.cards.coordinate.title")
+            %p.mt-3.text-sm.leading-6.text-slate-600= t(".workflow.cards.coordinate.description")
+          .rounded-lg.border.border-slate-200.bg-white.p-5
+            %p.text-sm.font-semibold.text-slate-950= t(".workflow.cards.confirm.title")
+            %p.mt-3.text-sm.leading-6.text-slate-600= t(".workflow.cards.confirm.description")
+
+    %section#early-access.border-t.border-slate-200.bg-slate-950.py-16.text-white
+      .mx-auto.flex.max-w-7xl.flex-col.justify-between.gap-8.px-6.lg:flex-row.lg:items-center.lg:px-8
+        .max-w-2xl
+          %p.text-sm.font-semibold.text-emerald-300= t(".early_access.eyebrow")
+          %h2.mt-3.text-3xl.font-semibold.leading-tight= t(".early_access.title")
+          %p.mt-4.text-base.leading-7.text-slate-300= t(".early_access.subtitle")
+        = link_to t(".early_access.cta"), "mailto:hello@example.com", class: "inline-flex w-full items-center justify-center rounded-lg bg-white px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-100 sm:w-auto"
+
+  %footer.border-t.border-slate-200.bg-white.py-6
+    .mx-auto.flex.max-w-7xl.flex-col.gap-3.px-6.text-sm.text-slate-500.sm:flex-row.sm:items-center.sm:justify-between.lg:px-8
+      %p= t(".brand")
+      %p= t(".footer.tagline")

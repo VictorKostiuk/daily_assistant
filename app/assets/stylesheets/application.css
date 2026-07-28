@@ -8,3 +8,7 @@
  *
  * Consider organizing styles into separate files for maintainability.
  */
+
+summary::-webkit-details-marker {
+  display: none;
+}
