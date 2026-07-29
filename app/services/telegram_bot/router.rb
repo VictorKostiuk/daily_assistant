@@ -3,7 +3,8 @@ module TelegramBot
     MESSAGE_ACTIONS = {
       "/start" => Actions::Start,
       "/connect" => Actions::Connect,
-      "/stop" => Actions::Stop
+      "/stop" => Actions::Stop,
+      "/todays_events" => Actions::TodaysEvents
     }.freeze
 
     CALLBACK_ACTIONS = {

@@ -2,8 +2,21 @@ en:
   telegram_bot:
     fallback_name: "there"
     commands:
-      start: "Hello, %{name} | Chat ID: %{chat_id}"
+      start:
+        greeting: "Hello, %{name}. Open your Daily Assistant account page and use Connect Telegram to link this chat."
+        connected: "Done, %{name}. This chat is now linked to your Daily Assistant account."
+        invalid_token: "That connection link is no longer valid, %{name}. Open your account page and generate a new one."
+        taken: "This Telegram account is already linked to a different Daily Assistant account."
       stop: "Bye, %{name} | Chat ID: %{chat_id}"
+      todays_events:
+        heading: "Your schedule for today:"
+        empty: "Nothing scheduled for today, %{name}."
+        all_day: "All day"
+        untitled: "Untitled event"
+        not_linked: "This chat is not linked yet. Open your Daily Assistant account page and use Connect Telegram."
+        google_missing: "Google is not connected. Open your account page and connect Google to see your schedule."
+        calendar_missing: "Calendar access was not granted. Reconnect Google from your account page."
+        failed: "Google did not answer just now. Please try again in a moment."
       connect:
         message: "Connect services"
         local_message: "Connect services: %{url}"

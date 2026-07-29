@@ -9,6 +9,7 @@ en:
   time:
     formats:
       long: "%B %-d, %Y at %H:%M"
+      hour_minute: "%H:%M"
 
   accounts:
     show:
@@ -47,12 +48,18 @@ en:
             description: "Use Telegram for reminders, digests, and quick assistant commands."
             connected: "Connected"
             not_connected: "Not connected"
+            connect: "Connect Telegram"
             cta: "Manage"
-          calendar:
-            title: "Calendar"
-            description: "Connect calendar providers so the assistant can read your day and suggest schedule changes."
-            status: "Coming soon"
-            cta: "Add link"
+          google:
+            title: "Google"
+            description: "One connection for every Google service the assistant uses, starting with your calendar."
+            statuses:
+              connected: "Connected"
+              reconnect_required: "Reconnect needed"
+              not_connected: "Not connected"
+            connect: "Connect Google"
+            reconnect: "Reconnect Google"
+            manage: "Manage"
           reminders:
             title: "Reminders"
             description: "Choose where reminders should arrive and how they should behave around quiet hours."
@@ -65,18 +72,49 @@ en:
             cta: "Add link"
       telegram:
         title: "Telegram account"
-        subtitle: "Current Telegram connection details will appear here after linking through the bot."
+        subtitle: "Link a Telegram chat so the assistant can send reminders and digests, and take commands from the bot."
         connected: "Connected"
         not_connected: "Not connected"
         no_username: "No username"
-        connect_hint: "Use /connect in the Telegram bot, or add the connection link here when that flow is ready."
+        connect: "Connect Telegram"
+        disconnect: "Disconnect Telegram"
+        disconnect_confirm: "Disconnect Telegram? The assistant will stop sending messages to this chat."
+        connect_hint: "This opens the bot with a one-time link that expires in 15 minutes. Press Start in Telegram to finish."
         fields:
           chat_id: "Chat ID"
           last_seen: "Last interaction"
+      google:
+        title: "Google"
+        subtitle: "One Google connection covers every Google service the assistant uses. Google stays the source of truth for the data it holds."
+        connected: "Connected account"
+        not_connected: "Not connected"
+        reconnect_required: "Access needs to be renewed"
+        connect: "Connect Google"
+        reconnect: "Reconnect Google"
+        disconnect: "Disconnect Google"
+        disconnect_confirm: "Disconnect Google? The assistant will lose access to every connected Google service."
+        connect_hint: "Connect your Google account to let the assistant read your schedule and create calendar events."
+        reconnect_hint: "Google no longer accepts the stored access. Reconnect to restore the services below."
+        no_services: "No Google services are enabled. Reconnect and approve the access the assistant asks for."
+        fields:
+          connected_at: "Connected since"
+          services: "Enabled services"
+        services:
+          calendar: "Calendar"
       next:
         title: "Profile changes"
         subtitle: "Keep the account overview clean and use the edit form only when profile or password values need to change."
         cta: "Go to edit form"
+
+  integrations:
+    google_connections:
+      connected: "Google is connected."
+      disconnected: "Google was disconnected."
+      failed: "We could not connect Google. Please try again."
+      unavailable: "Google is not configured for this environment yet."
+    telegram_connections:
+      disconnected: "Telegram was disconnected."
+      unavailable: "The Telegram bot is not configured for this environment yet."
 
   pages:
     home:
@@ -243,6 +281,9 @@ en:
           first_name: "First name"
           last_name: "Last name"
           email: "Email"
+          time_zone: "Time zone"
+          time_zone_blank: "Use UTC"
+          time_zone_hint: "Used for your daily schedule, reminders, and digests."
           password: "New password"
           password_hint: "Leave blank to keep your current password."
           password_confirmation: "Confirm new password"

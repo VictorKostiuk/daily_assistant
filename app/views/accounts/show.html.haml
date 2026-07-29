@@ -61,16 +61,10 @@
 
           .mt-6.grid.gap-4.md:grid-cols-2
             - connection_cards.each do |card|
-              %article.rounded-lg.border.border-slate-200.bg-stone-50.p-5
-                .flex.items-start.justify-between.gap-4
-                  .min-w-0
-                    %h3.text-base.font-semibold.text-slate-950= card.fetch(:title)
-                    %p.mt-2.text-sm.leading-6.text-slate-600= card.fetch(:description)
-                  %span.shrink-0.rounded-full.px-3.py-1.text-xs.font-semibold{ class: card.fetch(:badge_class) }= card.fetch(:status)
-                = link_to card.fetch(:cta), card.fetch(:path), class: "mt-5 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+              = render "accounts/connection_card", card: card
 
       .space-y-6
-        .rounded-lg.border.border-slate-200.bg-white.p-6.shadow-sm
+        %section#telegram-integration.rounded-lg.border.border-slate-200.bg-white.p-6.shadow-sm
           %h2.text-xl.font-semibold.text-slate-950= t(".telegram.title")
           %p.mt-2.text-sm.leading-6.text-slate-600= t(".telegram.subtitle")
 
@@ -78,7 +72,7 @@
             .mt-6.space-y-4
               .rounded-lg.bg-emerald-50.p-4
                 %p.text-xs.font-semibold.text-emerald-700= t(".telegram.connected")
-                %p.mt-2.text-sm.font-medium.text-emerald-950= @telegram_account.username.presence || t(".telegram.no_username")
+                %p.mt-2.text-sm.font-medium.text-emerald-950= @telegram_account.display_name.presence || t(".telegram.no_username")
               .grid.gap-4
                 .rounded-lg.bg-slate-50.p-4
                   %p.text-xs.font-semibold.text-slate-500= t(".telegram.fields.chat_id")
@@ -86,10 +80,48 @@
                 .rounded-lg.bg-slate-50.p-4
                   %p.text-xs.font-semibold.text-slate-500= t(".telegram.fields.last_seen")
                   %p.mt-2.text-sm.font-medium.text-slate-950= @telegram_account.last_interaction_at ? l(@telegram_account.last_interaction_at, format: :long) : t(".empty")
+              = button_to t(".telegram.disconnect"), integrations_telegram_connection_path, method: :delete, data: { turbo_confirm: t(".telegram.disconnect_confirm") }, class: "inline-flex w-full items-center justify-center rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
           - else
-            .mt-6.rounded-lg.bg-amber-50.p-4
-              %p.text-xs.font-semibold.text-amber-700= t(".telegram.not_connected")
-              %p.mt-2.text-sm.leading-6.text-amber-800= t(".telegram.connect_hint")
+            .mt-6.space-y-4
+              .rounded-lg.bg-amber-50.p-4
+                %p.text-xs.font-semibold.text-amber-700= t(".telegram.not_connected")
+                %p.mt-2.text-sm.leading-6.text-amber-800= t(".telegram.connect_hint")
+              = button_to t(".telegram.connect"), integrations_telegram_connection_path, form: external_redirect_form_options, class: "inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+
+        %section#google-integration.rounded-lg.border.border-slate-200.bg-white.p-6.shadow-sm
+          %h2.text-xl.font-semibold.text-slate-950= t(".google.title")
+          %p.mt-2.text-sm.leading-6.text-slate-600= t(".google.subtitle")
+
+          - if google_connection_state == :connected
+            .mt-6.space-y-4
+              .rounded-lg.bg-emerald-50.p-4
+                %p.text-xs.font-semibold.text-emerald-700= t(".google.connected")
+                %p.mt-2.truncate.text-sm.font-medium.text-emerald-950= @google_integration.external_account_email.presence || t(".empty")
+              .grid.gap-4
+                .rounded-lg.bg-slate-50.p-4
+                  %p.text-xs.font-semibold.text-slate-500= t(".google.fields.connected_at")
+                  %p.mt-2.text-sm.font-medium.text-slate-950= @google_integration.connected_at ? l(@google_integration.connected_at, format: :long) : t(".empty")
+                .rounded-lg.bg-slate-50.p-4
+                  %p.text-xs.font-semibold.text-slate-500= t(".google.fields.services")
+                  - if google_services.any?
+                    %ul.mt-2.space-y-1
+                      - google_services.each do |service|
+                        %li.text-sm.font-medium.text-slate-950= google_service_label(service)
+                  - else
+                    %p.mt-2.text-sm.leading-6.text-slate-600= t(".google.no_services")
+              = button_to t(".google.disconnect"), integrations_google_connection_path, method: :delete, data: { turbo_confirm: t(".google.disconnect_confirm") }, class: "inline-flex w-full items-center justify-center rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
+          - elsif google_connection_state == :reconnect_required
+            .mt-6.space-y-4
+              .rounded-lg.bg-rose-50.p-4
+                %p.text-xs.font-semibold.text-rose-700= t(".google.reconnect_required")
+                %p.mt-2.text-sm.leading-6.text-rose-800= t(".google.reconnect_hint")
+              = button_to t(".google.reconnect"), google_oauth_request_path, form: external_redirect_form_options, class: "inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+          - else
+            .mt-6.space-y-4
+              .rounded-lg.bg-amber-50.p-4
+                %p.text-xs.font-semibold.text-amber-700= t(".google.not_connected")
+                %p.mt-2.text-sm.leading-6.text-amber-800= t(".google.connect_hint")
+              = button_to t(".google.connect"), google_oauth_request_path, form: external_redirect_form_options, class: "inline-flex w-full items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
 
         .rounded-lg.border.border-slate-200.bg-slate-950.p-6.text-white.shadow-sm
           %h2.text-xl.font-semibold= t(".next.title")

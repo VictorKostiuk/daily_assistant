@@ -26,6 +26,11 @@
           = f.label :email, t(".form.email"), class: "block text-sm font-medium text-slate-700"
           = f.email_field :email, autocomplete: "email", class: "block w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-950 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
 
+        .space-y-2
+          = f.label :time_zone, t(".form.time_zone"), class: "block text-sm font-medium text-slate-700"
+          = f.select :time_zone, time_zone_options, { include_blank: t(".form.time_zone_blank") }, class: "block w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-950 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
+          %p.text-xs.text-slate-500= t(".form.time_zone_hint")
+
         .grid.gap-4.sm:grid-cols-2
           .space-y-2
             = f.label :password, t(".form.password"), class: "block text-sm font-medium text-slate-700"

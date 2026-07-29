@@ -4,9 +4,8 @@ class AccountsController < ApplicationController
   def show
     @user = current_user
     @telegram_account = @user.telegram_account
-    @connected_integrations_count = @user.user_integrations.where.not(connected_at: nil).count
+    @google_integration = @user.google_integration
+    @connected_integrations_count = @user.user_integrations.connected.count
     @connected_integrations_count += 1 if @telegram_account
   end
-
-  
 end

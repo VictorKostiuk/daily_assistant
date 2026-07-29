@@ -51,6 +51,16 @@ module TelegramBot
         update.from&.first_name.presence || t("fallback_name")
       end
 
+      def telegram_account
+        return @telegram_account if defined?(@telegram_account)
+
+        @telegram_account = TelegramAccount.find_by(telegram_user_id: update.from&.id)
+      end
+
+      def current_user
+        telegram_account&.user
+      end
+
       def t(key, **options)
         I18n.t("telegram_bot.#{key}", **options)
       end

@@ -10,6 +10,7 @@ class User < ApplicationRecord
   has_one :telegram_account, dependent: :destroy
   has_one :daily_digest, dependent: :destroy
 
+  has_many :connection_tokens, dependent: :destroy
   has_many :user_integrations, dependent: :destroy
   has_many :integration_providers, through: :user_integrations
 
@@ -48,4 +49,8 @@ class User < ApplicationRecord
     blocked: 2,
     pending: 3
   }
+
+  def google_integration
+    user_integrations.for_provider(IntegrationProvider::GOOGLE).first
+  end
 end

@@ -1,4 +1,12 @@
 module ApplicationHelper
+  def time_zone_options
+    TZInfo::Timezone.all_identifiers
+                    .filter_map { |identifier| ActiveSupport::TimeZone[identifier] }
+                    .uniq { |zone| zone.tzinfo.name }
+                    .sort_by { |zone| [ zone.utc_offset, zone.tzinfo.name ] }
+                    .map { |zone| [ "(GMT#{zone.formatted_offset}) #{zone.tzinfo.name}", zone.tzinfo.name ] }
+  end
+
   def public_asset_version(filename)
     path = Rails.root.join("public", filename)
 

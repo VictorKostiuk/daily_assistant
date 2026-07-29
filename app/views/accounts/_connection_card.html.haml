@@ -1,0 +1,11 @@
+%article.rounded-lg.border.border-slate-200.bg-stone-50.p-5
+  .flex.items-start.justify-between.gap-4
+    .min-w-0
+      %h3.text-base.font-semibold.text-slate-950= card.fetch(:title)
+      %p.mt-2.text-sm.leading-6.text-slate-600= card.fetch(:description)
+    %span.shrink-0.rounded-full.px-3.py-1.text-xs.font-semibold{ class: card.fetch(:badge_class) }= card.fetch(:status)
+
+  - if card[:method]
+    = button_to card.fetch(:cta), card.fetch(:path), method: card.fetch(:method), form_class: "mt-5", form: card.fetch(:form, {}), class: "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+  - else
+    = link_to card.fetch(:cta), card.fetch(:path), class: "mt-5 inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"

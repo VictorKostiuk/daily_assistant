@@ -63,4 +63,5 @@ gem "ruby-openai"
 gem "sidekiq"
 
 gem "omniauth-google-oauth2"
+gem "omniauth-rails_csrf_protection"
 gem "google-apis-calendar_v3"
