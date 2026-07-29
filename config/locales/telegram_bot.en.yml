@@ -17,6 +17,17 @@ en:
         google_missing: "Google is not connected. Open your account page and connect Google to see your schedule."
         calendar_missing: "Calendar access was not granted. Reconnect Google from your account page."
         failed: "Google did not answer just now. Please try again in a moment."
+      setup_event:
+        prompt: "What should I schedule? Describe it in one message, for example: dinner with Anna tomorrow at 19:00 at Trattoria."
+        created: "Added \"%{title}\" to your calendar."
+        when: "When: %{time}"
+        where: "Where: %{location}"
+        not_linked: "This chat is not linked yet. Open your Daily Assistant account page and use Connect Telegram."
+        google_missing: "Google is not connected. Open your account page and connect Google to add events."
+        calendar_missing: "Calendar access was not granted. Reconnect Google from your account page."
+        not_understood: "I could not turn that into an event. Try again with a date and a time."
+        unavailable: "The assistant is not available right now. Please try again later."
+        failed: "Google did not accept the event just now. Please try again in a moment."
       connect:
         message: "Connect services"
         local_message: "Connect services: %{url}"
