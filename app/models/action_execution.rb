@@ -1,4 +1,8 @@
 class ActionExecution < ApplicationRecord
+  belongs_to :user
+  belongs_to :shortcut, optional: true
+  belongs_to :user_integration, optional: true
+
   enum :source, {
     web: 0,
     telegram: 1,

@@ -1,0 +1,30 @@
+- content_for :title, t(".meta.title", email: @user.email)
+
+%main.min-h-screen.bg-stone-50.px-6.py-10.lg:px-8
+  .mx-auto.max-w-6xl
+    = link_to t(".back"), admin_users_path, class: "text-sm text-slate-500 hover:text-slate-700"
+
+    %header.mt-4
+      %h1.text-2xl.font-semibold.text-slate-950= user_full_name(@user)
+      %p.mt-1.text-sm.text-slate-500= t(".subtitle", email: @user.email, date: l(@user.created_at.to_date, format: :long))
+
+    %h2.mt-8.text-lg.font-semibold.text-slate-950= t(".actions_heading")
+
+    .mt-4.overflow-hidden.rounded-lg.border.border-slate-200.bg-white.shadow-sm
+      - if @pagination.records.empty?
+        .p-6.text-sm.text-slate-500= t(".empty")
+      - else
+        %table.min-w-full.divide-y.divide-slate-200
+          %thead.bg-slate-50
+            %tr
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t("admin.action_executions.index.columns.when")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t("admin.action_executions.index.columns.action")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t("admin.action_executions.index.columns.source")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t("admin.action_executions.index.columns.status")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t("admin.action_executions.index.columns.detail")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t("admin.action_executions.index.columns.duration")
+          %tbody.divide-y.divide-slate-100
+            - @pagination.records.each do |execution|
+              = render "admin/action_executions/row", execution: execution, show_user: false
+
+    = render "admin/shared/pagination", pagination: @pagination

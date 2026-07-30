@@ -2,34 +2,33 @@ module TelegramBot
   module Actions
     class SetupEvent < Base
       COMMAND = "/setup_event".freeze
+      ACTION_TYPE = "setup_event".freeze
 
       def call
         return send_message(t("commands.setup_event.not_linked")) if current_user.blank?
         return send_message(t("commands.setup_event.google_missing")) unless google_connected?
         return ask_for_description if description.blank?
 
-        event = Integrations::OpenRouter::ParseEvent.call(text: description, time_zone: time_zone)
-        created = Integrations::Google::CreateEvent.call(user: current_user, event: event)
-        telegram_account.touch(:last_interaction_at)
-
-        send_message(confirmation_for(event, created), disable_web_page_preview: true)
-      rescue Integrations::OpenRouter::Client::NotConfigured => error
-        Rails.logger.error("[telegram_bot] setup_event unavailable: #{error.message}")
-        send_message(t("commands.setup_event.unavailable"))
-      rescue Integrations::OpenRouter::Client::RequestFailed, Integrations::OpenRouter::ParseEvent::UnparseableResponse => error
-        Rails.logger.warn("[telegram_bot] setup_event parsing failed: #{error.class}: #{error.message}")
-        send_message(t("commands.setup_event.not_understood"))
-      rescue Integrations::Google::Client::ScopeMissing
-        send_message(t("commands.setup_event.calendar_missing"))
-      rescue ::Google::Apis::Error, ::Signet::AuthorizationError => error
-        Rails.logger.warn("[telegram_bot] setup_event failed: #{error.class}: #{error.message}")
-        send_message(t("commands.setup_event.failed"))
+        perform_setup
       end
 
       private
 
+      def perform_setup
+        started_at = Time.current
+
+        event = Integrations::OpenRouter::ParseEvent.call(text: description, time_zone: time_zone)
+        created = Integrations::Google::CreateEvent.call(user: current_user, event: event)
+        telegram_account.touch(:last_interaction_at)
+
+        record_action!(action_type: ACTION_TYPE, status: :succeeded, display_text: event.title, started_at: started_at)
+        send_message(confirmation_for(event, created), disable_web_page_preview: true)
+      rescue StandardError => error
+        handle_event_error!(error, i18n_scope: "commands.setup_event", action_type: ACTION_TYPE, display_text: description, started_at: started_at)
+      end
+
       def ask_for_description
-        PendingAction.set(update.from&.id, COMMAND)
+        PendingAction.set(update.from&.id, command: COMMAND, stage: "description")
         send_message(t("commands.setup_event.prompt"))
       end
 

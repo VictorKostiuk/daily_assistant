@@ -1,0 +1,11 @@
+%tr
+  - if show_user
+    %td.px-4.py-3.text-sm.text-slate-950
+      = link_to execution.user.email, admin_user_path(execution.user), class: "hover:text-emerald-700"
+  %td.px-4.py-3.text-sm.text-slate-500.whitespace-nowrap= l(execution.created_at, format: :long)
+  %td.px-4.py-3.text-sm.text-slate-950= execution.action_type
+  %td.px-4.py-3.text-sm.text-slate-700= execution.source.humanize
+  %td.px-4.py-3.text-sm
+    %span{ class: "inline-flex rounded-full px-2 py-0.5 text-xs font-medium #{action_status_badge_class(execution.status)}" }= execution.status.humanize
+  %td.px-4.py-3.text-sm.text-slate-700.max-w-xs.truncate= execution.error_message.presence || execution.display_text
+  %td.px-4.py-3.text-sm.text-slate-500= execution.duration_ms ? "#{execution.duration_ms} ms" : "—"

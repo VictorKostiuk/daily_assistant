@@ -21,6 +21,8 @@ en:
       empty: "Not set"
       status_value: "%{status}"
       actions:
+        my_actions: "My actions"
+        admin: "Admin panel"
         edit: "Edit account"
         sign_out: "Sign out"
       summary:
@@ -105,6 +107,23 @@ en:
         title: "Profile changes"
         subtitle: "Keep the account overview clean and use the edit form only when profile or password values need to change."
         cta: "Go to edit form"
+
+  action_executions:
+    index:
+      meta:
+        title: "My actions - Daily Assistant"
+      back: "Back to account"
+      eyebrow: "Activity"
+      heading: "Your actions"
+      subtitle: "Everything the assistant has done on your behalf, most recent first."
+      empty: "No actions recorded yet."
+      columns:
+        when: "When"
+        action: "Action"
+        source: "Source"
+        status: "Status"
+        detail: "Detail"
+        duration: "Duration"
 
   integrations:
     google_connections:

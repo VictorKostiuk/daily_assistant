@@ -1,10 +1,17 @@
 Rails.application.routes.draw do
   devise_for :users
   resource :account, only: :show
+  resources :action_executions, only: :index, path: "actions"
 
   namespace :integrations do
     resource :google_connection, only: :destroy
     resource :telegram_connection, only: %i[create destroy]
+  end
+
+  namespace :admin do
+    root to: "users#index"
+    resources :users, only: %i[index show]
+    resources :action_executions, only: %i[index], path: "actions"
   end
 
   # OmniAuth intercepts the request phase, so #new only runs when Google is not configured.

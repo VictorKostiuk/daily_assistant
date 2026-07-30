@@ -9,6 +9,9 @@
         %span.text-sm.font-semibold.text-slate-950= t("app.name")
 
       .flex.flex-col.gap-3.sm:flex-row
+        = link_to t(".actions.my_actions"), action_executions_path, class: "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
+        - if current_user.admin?
+          = link_to t(".actions.admin"), admin_users_path, class: "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
         = link_to t(".actions.edit"), edit_user_registration_path, class: "inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50"
         = button_to t(".actions.sign_out"), destroy_user_session_path, method: :delete, class: "inline-flex w-full items-center justify-center rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 sm:w-auto"
 

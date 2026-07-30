@@ -5,7 +5,9 @@ module TelegramBot
       "/connect" => Actions::Connect,
       "/stop" => Actions::Stop,
       "/todays_events" => Actions::TodaysEvents,
-      "/setup_event" => Actions::SetupEvent
+      "/setup_event" => Actions::SetupEvent,
+      "/update_event" => Actions::UpdateEvent,
+      "/cancel_event" => Actions::CancelEvent
     }.freeze
 
     CALLBACK_ACTIONS = {
@@ -31,16 +33,22 @@ module TelegramBot
 
     def handle_message(message)
       text = message.text.to_s
-      action_class = MESSAGE_ACTIONS[text.split.first] || pending_action_for(message, text)
-      return unless action_class
+      action_class = MESSAGE_ACTIONS[text.split.first]
+      return action_class.call(bot: bot, update: message) if action_class
 
-      action_class.call(bot: bot, update: message)
+      resume_pending(message, text)
     end
 
-    def pending_action_for(message, text)
+    def resume_pending(message, text)
       return if text.blank? || text.start_with?("/")
 
-      MESSAGE_ACTIONS[PendingAction.take(message.from&.id)]
+      pending = PendingAction.take(message.from&.id)
+      return if pending.blank?
+
+      action_class = MESSAGE_ACTIONS[pending[:command]]
+      return unless action_class
+
+      action_class.call(bot: bot, update: message, pending: pending)
     end
 
     def handle_callback(callback_query)

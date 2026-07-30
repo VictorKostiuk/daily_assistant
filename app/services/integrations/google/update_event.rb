@@ -1,24 +1,25 @@
 module Integrations
   module Google
-    class CreateEvent
+    class UpdateEvent
       DEFAULT_CALENDAR_ID = "primary".freeze
 
-      def self.call(user:, event:)
-        new(user: user, event: event).call
+      def self.call(user:, event_id:, event:)
+        new(user: user, event_id: event_id, event: event).call
       end
 
-      def initialize(user:, event:)
+      def initialize(user:, event_id:, event:)
         @user = user
+        @event_id = event_id
         @event = event
       end
 
       def call
-        client.calendar.insert_event(calendar_id, payload)
+        client.calendar.update_event(calendar_id, event_id, payload)
       end
 
       private
 
-      attr_reader :user, :event
+      attr_reader :user, :event_id, :event
 
       def payload
         EventPayload.build(event, time_zone: time_zone)

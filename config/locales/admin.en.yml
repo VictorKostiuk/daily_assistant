@@ -1,0 +1,50 @@
+en:
+  admin:
+    not_authorized: "You don't have access to that page."
+    nav:
+      users: "Users"
+      actions: "All actions"
+    pagination:
+      previous: "Previous"
+      next: "Next"
+      summary: "Page %{page} of %{total_pages} (%{total} total)"
+    users:
+      index:
+        meta:
+          title: "Admin — Users"
+        heading: "Users"
+        subtitle: "%{count} accounts"
+        empty: "No users yet."
+        columns:
+          email: "Email"
+          name: "Name"
+          role: "Role"
+          status: "Status"
+          last_seen: "Last seen"
+          actions_count: "Actions"
+        view_actions: "View actions"
+        never: "Never"
+      show:
+        meta:
+          title: "Admin — %{email}"
+        back: "Back to users"
+        subtitle: "%{email} · joined %{date}"
+        actions_heading: "Actions"
+        empty: "No recorded actions for this user yet."
+    action_executions:
+      index:
+        meta:
+          title: "Admin — All actions"
+        heading: "All actions"
+        subtitle: "%{count} recorded"
+        filtered_by: "Filtered to %{email}"
+        clear_filter: "Clear filter"
+        empty: "No actions have been recorded yet."
+        columns:
+          user: "User"
+          when: "When"
+          action: "Action"
+          source: "Source"
+          status: "Status"
+          detail: "Detail"
+          duration: "Duration"

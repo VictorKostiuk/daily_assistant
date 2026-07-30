@@ -1,0 +1,9 @@
+- if pagination.total_pages > 1
+  %nav.mt-6.flex.items-center.justify-between
+    %p.text-sm.text-slate-500
+      = t("admin.pagination.summary", page: pagination.page, total_pages: pagination.total_pages, total: pagination.total)
+    .flex.gap-2
+      - if pagination.page > 1
+        = link_to t("admin.pagination.previous"), url_for(request.query_parameters.merge(page: pagination.page - 1)), class: "rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+      - if pagination.page < pagination.total_pages
+        = link_to t("admin.pagination.next"), url_for(request.query_parameters.merge(page: pagination.page + 1)), class: "rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"

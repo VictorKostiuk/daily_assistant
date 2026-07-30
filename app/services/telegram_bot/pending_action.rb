@@ -2,16 +2,16 @@ module TelegramBot
   class PendingAction
     TTL = 10.minutes
 
-    def self.set(telegram_user_id, command)
+    def self.set(telegram_user_id, **payload)
       return if telegram_user_id.blank?
 
-      Rails.cache.write(key(telegram_user_id), command, expires_in: TTL)
+      Rails.cache.write(key(telegram_user_id), payload, expires_in: TTL)
     end
 
     def self.take(telegram_user_id)
       return if telegram_user_id.blank?
 
-      Rails.cache.read(key(telegram_user_id)).tap { |command| clear(telegram_user_id) if command }
+      Rails.cache.read(key(telegram_user_id)).tap { |payload| clear(telegram_user_id) if payload }
     end
 
     def self.clear(telegram_user_id)

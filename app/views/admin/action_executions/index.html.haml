@@ -1,0 +1,33 @@
+- content_for :title, t(".meta.title")
+
+%main.min-h-screen.bg-stone-50.px-6.py-10.lg:px-8
+  .mx-auto.max-w-6xl
+    %header.flex.items-center.justify-between
+      %div
+        %h1.text-2xl.font-semibold.text-slate-950= t(".heading")
+        %p.mt-1.text-sm.text-slate-500= t(".subtitle", count: @pagination.total)
+        - if @filtered_user
+          %p.mt-1.text-sm.text-slate-500
+            = t(".filtered_by", email: @filtered_user.email)
+            = link_to t(".clear_filter"), admin_action_executions_path, class: "ml-2 text-emerald-700 hover:text-emerald-800"
+      = link_to t("admin.nav.users"), admin_users_path, class: "rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+
+    .mt-8.overflow-hidden.rounded-lg.border.border-slate-200.bg-white.shadow-sm
+      - if @pagination.records.empty?
+        .p-6.text-sm.text-slate-500= t(".empty")
+      - else
+        %table.min-w-full.divide-y.divide-slate-200
+          %thead.bg-slate-50
+            %tr
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t(".columns.user")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t(".columns.when")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t(".columns.action")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t(".columns.source")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t(".columns.status")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t(".columns.detail")
+              %th.px-4.py-3.text-left.text-xs.font-medium.uppercase.tracking-wide.text-slate-500= t(".columns.duration")
+          %tbody.divide-y.divide-slate-100
+            - @pagination.records.each do |execution|
+              = render "admin/action_executions/row", execution: execution, show_user: true
+
+    = render "admin/shared/pagination", pagination: @pagination

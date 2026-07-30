@@ -1,17 +1,18 @@
 module TelegramBot
   module Actions
     class Base
-      def self.call(bot:, update:)
-        new(bot: bot, update: update).call
+      def self.call(bot:, update:, pending: nil)
+        new(bot: bot, update: update, pending: pending).call
       end
 
       def self.call_callback(bot:, update:)
         new(bot: bot, update: update).call_callback
       end
 
-      def initialize(bot:, update:)
+      def initialize(bot:, update:, pending: nil)
         @bot = bot
         @update = update
+        @pending = pending
       end
 
       def call
@@ -24,7 +25,7 @@ module TelegramBot
 
       private
 
-      attr_reader :bot, :update
+      attr_reader :bot, :update, :pending
 
       def send_message(text, **options)
         bot.api.send_message({ chat_id: chat_id, text: text }.merge(options))
@@ -59,6 +60,45 @@ module TelegramBot
 
       def current_user
         telegram_account&.user
+      end
+
+      def record_action!(action_type:, status:, display_text: nil, error_message: nil, started_at: nil)
+        return if current_user.blank?
+
+        completed_at = Time.current
+
+        current_user.action_executions.create!(
+          action_type: action_type,
+          source: :telegram,
+          status: status,
+          display_text: display_text,
+          error_message: error_message,
+          started_at: started_at,
+          completed_at: completed_at,
+          duration_ms: started_at ? ((completed_at - started_at) * 1000).round : nil
+        )
+      rescue StandardError => error
+        Rails.logger.error("[telegram_bot] failed to record action execution: #{error.class}: #{error.message}")
+      end
+
+      def handle_event_error!(error, i18n_scope:, action_type:, display_text: nil, started_at: nil)
+        record_action!(action_type: action_type, status: :failed, display_text: display_text, error_message: error.message, started_at: started_at)
+
+        case error
+        when Integrations::OpenRouter::Client::NotConfigured
+          Rails.logger.error("[telegram_bot] #{action_type} unavailable: #{error.message}")
+          send_message(t("#{i18n_scope}.unavailable"))
+        when Integrations::OpenRouter::Client::RequestFailed, Integrations::OpenRouter::EventParsing::UnparseableResponse
+          Rails.logger.warn("[telegram_bot] #{action_type} parsing failed: #{error.class}: #{error.message}")
+          send_message(t("#{i18n_scope}.not_understood"))
+        when Integrations::Google::Client::ScopeMissing
+          send_message(t("#{i18n_scope}.calendar_missing"))
+        when ::Google::Apis::Error, ::Signet::AuthorizationError
+          Rails.logger.warn("[telegram_bot] #{action_type} failed: #{error.class}: #{error.message}")
+          send_message(t("#{i18n_scope}.failed"))
+        else
+          raise error
+        end
       end
 
       def t(key, **options)
