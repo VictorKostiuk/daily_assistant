@@ -2,6 +2,9 @@ en:
   app:
     name: "Daily Assistant"
 
+  errors:
+    not_authorized: "You don't have access to that page."
+
   date:
     formats:
       long: "%B %-d, %Y"

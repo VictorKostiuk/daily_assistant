@@ -14,7 +14,17 @@ module Integrations
       end
 
       def call
-        client.calendar.update_event(calendar_id, event_id, payload)
+        updated = client.calendar.update_event(calendar_id, event_id, payload)
+
+        LocalCalendarEvent.sync(
+          user: user,
+          external_event_id: updated.id,
+          external_calendar_id: calendar_id,
+          event: event,
+          time_zone: time_zone
+        )
+
+        updated
       end
 
       private

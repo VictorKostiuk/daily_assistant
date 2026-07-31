@@ -63,7 +63,7 @@ end
 gem "devise", "~> 5.0"
 gem "telegram-bot-ruby"
 gem "ruby-openai"
-gem "sidekiq"
+gem "pundit"
 
 gem "omniauth-google-oauth2"
 gem "omniauth-rails_csrf_protection"

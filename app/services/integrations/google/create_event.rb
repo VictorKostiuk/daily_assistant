@@ -13,7 +13,17 @@ module Integrations
       end
 
       def call
-        client.calendar.insert_event(calendar_id, payload)
+        created = client.calendar.insert_event(calendar_id, payload)
+
+        LocalCalendarEvent.sync(
+          user: user,
+          external_event_id: created.id,
+          external_calendar_id: calendar_id,
+          event: event,
+          time_zone: time_zone
+        )
+
+        created
       end
 
       private

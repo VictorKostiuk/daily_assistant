@@ -1,0 +1,8 @@
+# Recurring/scheduled jobs (reminders, daily digest, etc.) will be added here
+# once those features exist. See config/queue.yml for worker/dispatcher settings.
+#
+# Example:
+#   deliver_daily_digests:
+#     class: DeliverDailyDigestJob
+#     schedule: every hour
+{}

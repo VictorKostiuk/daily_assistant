@@ -19,9 +19,9 @@ module TelegramBot
       log "Telegram bot polling started"
 
       @bot.listen do |update|
-        router.call(update)
+        ProcessTelegramUpdateJob.perform_later(update.class.name, UpdateSerializer.dump(update))
       rescue StandardError => e
-        log "Telegram bot update failed: #{e.class}: #{e.message}"
+        log "Telegram bot failed to enqueue update: #{e.class}: #{e.message}"
       end
     rescue Telegram::Bot::Exceptions::ResponseError => e
       log "Telegram bot API failed: #{e.class}: #{e.message}"
@@ -33,10 +33,6 @@ module TelegramBot
     end
 
     private
-
-    def router
-      @router ||= Router.new(bot: @bot, logger: @logger)
-    end
 
     def trap_shutdown_signals
       %w[INT TERM].each do |signal|

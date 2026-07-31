@@ -14,6 +14,7 @@ module Integrations
 
       def call
         client.calendar.delete_event(calendar_id, event_id)
+        LocalCalendarEvent.cancel(user: user, external_event_id: event_id)
       end
 
       private

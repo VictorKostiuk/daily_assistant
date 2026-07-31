@@ -3,14 +3,12 @@ module Admin
     include Paginatable
 
     before_action :authenticate_user!
-    before_action :require_admin!
+    before_action :authorize_admin_access!
 
     private
 
-    def require_admin!
-      return if current_user.admin?
-
-      redirect_to root_path, alert: t("admin.not_authorized")
+    def authorize_admin_access!
+      authorize :admin, :access?, policy_class: AdminPolicy
     end
   end
 end
