@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_30_210045) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_31_122901) do
   create_table "action_executions", force: :cascade do |t|
     t.string "action_type", null: false
     t.datetime "completed_at"
@@ -128,7 +128,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_30_210045) do
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["enabled", "next_delivery_at"], name: "index_daily_digests_on_enabled_and_next_delivery_at"
-    t.index ["user_id"], name: "index_daily_digests_on_user_id"
+    t.index ["user_id"], name: "index_daily_digests_on_user_id", unique: true
   end
 
   create_table "guides", force: :cascade do |t|

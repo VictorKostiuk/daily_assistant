@@ -7,7 +7,11 @@ module TelegramBot
       "/todays_events" => Actions::TodaysEvents,
       "/setup_event" => Actions::SetupEvent,
       "/update_event" => Actions::UpdateEvent,
-      "/cancel_event" => Actions::CancelEvent
+      "/cancel_event" => Actions::CancelEvent,
+      "/remind" => Actions::RemindMe,
+      "/reminders" => Actions::RemindersList,
+      "/cancel_reminder" => Actions::CancelReminder,
+      "/daily_digest" => Actions::DailyDigestSettings
     }.freeze
 
     CALLBACK_ACTIONS = {

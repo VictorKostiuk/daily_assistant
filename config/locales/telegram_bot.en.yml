@@ -1,6 +1,15 @@
 en:
   telegram_bot:
     fallback_name: "there"
+    reminders:
+      deliver: "Reminder: %{title}"
+    daily_digest:
+      greeting: "Good morning, %{name}."
+      empty: "Nothing scheduled for today."
+      schedule_heading: "Your schedule for today:"
+      reminders_heading: "Other reminders:"
+      all_day: "All day"
+      untitled: "Untitled event"
     commands:
       start:
         greeting: "Hello, %{name}. Open your Daily Assistant account page and use Connect Telegram to link this chat."
@@ -60,6 +69,40 @@ en:
         not_understood: "I could not figure out which event to cancel. Try again with more detail."
         unavailable: "The assistant is not available right now. Please try again later."
         failed: "Google did not accept the cancellation just now. Please try again in a moment."
+      remind_me:
+        prompt: "What should I remind you about, and when? For example: remind me 30 minutes before my dinner with Anna, or remind me tomorrow at 09:00 to submit the report."
+        scheduled: "Okay, I will remind you about \"%{title}\" on %{time}."
+        event_not_found: "I could not tell which event you mean. Try naming it or its time more specifically."
+        not_understood: "I could not turn that into a reminder. Try again with more detail."
+        unavailable: "The assistant is not available right now. Please try again later."
+        calendar_missing: "Calendar access was not granted. Reconnect Google from your account page."
+        failed: "Something went wrong just now. Please try again in a moment."
+        not_linked: "This chat is not linked yet. Open your Daily Assistant account page and use Connect Telegram."
+      reminders_list:
+        heading: "Your upcoming reminders:"
+        empty: "You have no upcoming reminders."
+        not_linked: "This chat is not linked yet. Open your Daily Assistant account page and use Connect Telegram."
+      cancel_reminder:
+        prompt: "Which reminder should I cancel?"
+        confirm: "Cancel the reminder \"%{title}\" (%{time})? Reply yes to confirm."
+        confirm_hint: "Reply yes to confirm, or anything else to keep it."
+        discarded: "Okay, I did not cancel anything."
+        cancelled: "Cancelled the reminder \"%{title}\"."
+        already_gone: "That reminder is no longer pending."
+        no_reminders: "You have no upcoming reminders to cancel."
+        not_found: "I could not tell which reminder you mean. Try naming it more specifically."
+        not_understood: "I could not figure out which reminder to cancel. Try again with more detail."
+        unavailable: "The assistant is not available right now. Please try again later."
+        calendar_missing: "Calendar access was not granted. Reconnect Google from your account page."
+        failed: "Something went wrong just now. Please try again in a moment."
+        not_linked: "This chat is not linked yet. Open your Daily Assistant account page and use Connect Telegram."
+      daily_digest:
+        usage: "Use /daily_digest on HH:MM to enable your morning summary, or /daily_digest off to disable it."
+        enabled: "Your daily digest is on, delivered around %{time} each day."
+        disabled: "Your daily digest is now off."
+        status_on: "Your daily digest is on, delivered around %{time} each day."
+        status_off: "Your daily digest is off. Use /daily_digest on HH:MM to enable it."
+        not_linked: "This chat is not linked yet. Open your Daily Assistant account page and use Connect Telegram."
       connect:
         message: "Connect services"
         local_message: "Connect services: %{url}"
