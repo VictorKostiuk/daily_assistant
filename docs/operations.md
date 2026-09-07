@@ -225,12 +225,14 @@ Removing `yarn audit` does not make `bin/ci` green.
 
 Version bumps are out of scope.
 
-**Inferred, not observed.** No hosted CI run has happened for this work — nothing has been pushed. The rows below are predictions drawn from the measured exits above plus the job definitions in `.github/workflows/ci.yml`:
+**Observed on one hosted run.** The rows below record CI run [`34168611466`](https://github.com/VictorKostiuk/daily_assistant/actions/runs/34168611466), at head `614a74b`, completed 2026-09-07 (UTC). **They are a record of that one run.** Later runs may differ — a hosted runner resolves its own gem versions and platform, and `bin/brakeman`'s `--ensure-latest` consults the network — so do not read this as the state of any current or future run, and check the PR for that.
 
-| Hosted job | Command it runs | Inferred | Basis for the inference |
-| --- | --- | --- | --- |
-| `scan_ruby` | `bin/brakeman --no-pager`, then `bin/bundler-audit` | red | the first step exits 5 locally |
-| `lint` | `bin/rubocop -f github` | red | that exact command, `-f github` included, exits 1 locally — measured, not inferred from the plain form |
-| `test` | `bundle exec rspec` (`RAILS_ENV=test`, `SQLITE_DATABASE_PATH=tmp/ci/test.sqlite3`) | green | 381 examples, 0 failures locally |
+| Hosted job | Command it ran | Result on run `34168611466` |
+| --- | --- | --- |
+| `test` | `bundle exec rspec` (`RAILS_ENV=test`, `SQLITE_DATABASE_PATH=tmp/ci/test.sqlite3`) | **passed** — `381 examples, 0 failures` |
+| `lint` | `bin/rubocop -f github` | **failed**, exit 1 — `Layout/SpaceInsideArrayLiteralBrackets` annotations. `-f github` prints annotations rather than the usual summary line, so that run's log carries no offence count |
+| `scan_ruby` | `bin/brakeman --no-pager`, then `bin/bundler-audit` | **failed**, exit 5 — `Brakeman 8.0.5 is not the latest version 8.0.6` |
 
-Treat these as predictions. A hosted runner resolves its own gem versions and platform, and `bin/brakeman`'s `--ensure-latest` consults the network, so any of these could differ from the local result.
+⚠️ **`bin/bundler-audit` never executed on that run.** On run `34168611466`, `scan_ruby` ran Brakeman first and `--ensure-latest` failed that step at the version check *before the scan itself*; the workflow at `614a74b` did not mark the audit step `continue-on-error`, so Actions **skipped** it. Run `34168611466` did not evaluate any of those three advisories; that run therefore supplied no hosted evidence for the locally measured audit findings.
+
+On that run, each job's outcome matched the locally measured exit for the same command.
