@@ -49,6 +49,23 @@ Rails.application.configure do
   # Replace the default in-process memory cache store with a durable alternative.
   # config.cache_store = :mem_cache_store
 
+  # Env-configured mail transport. Set SMTP_ADDRESS, SMTP_PORT, SMTP_USERNAME,
+  # SMTP_PASSWORD, MAILER_HOST, and MAILER_FROM in the environment.
+  config.action_mailer.delivery_method = :smtp
+  config.action_mailer.smtp_settings = {
+    address: ENV.fetch("SMTP_ADDRESS", "localhost"),
+    port: Integer(ENV.fetch("SMTP_PORT", "587")),
+    user_name: ENV["SMTP_USERNAME"],
+    password: ENV["SMTP_PASSWORD"]
+  }
+  config.action_mailer.default_url_options = {
+    host: ENV.fetch("MAILER_HOST", "example.com"),
+    protocol: "https"
+  }
+  config.action_mailer.default_options = {
+    from: ENV.fetch("MAILER_FROM", "no-reply@example.com")
+  }
+
   # Replace the default in-process and non-durable queuing backend for Active Job.
   # config.active_job.queue_adapter = :resque
 

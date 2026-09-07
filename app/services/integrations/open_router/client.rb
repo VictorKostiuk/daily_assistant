@@ -8,28 +8,42 @@ module Integrations
 
       REQUEST_TIMEOUT = 30
 
-      def chat(system:, user:, model: nil)
+      def chat(system:, user:, model: nil, response_format: { type: "json_object" }, temperature: 0)
         raise NotConfigured, "OPEN_ROUTER_KEY is missing" if settings.api_key.blank?
 
-        response = client.chat(parameters: {
+        parameters = {
           model: model.presence || settings.model,
-          temperature: 0,
-          response_format: { type: "json_object" },
+          temperature: temperature,
           messages: [
             { role: "system", content: system },
             { role: "user", content: user }
           ]
-        })
+        }
+        parameters[:response_format] = response_format unless response_format.nil?
 
-        content = response.dig("choices", 0, "message", "content")
-        raise RequestFailed, "OpenRouter returned no content: #{response.dig('error', 'message')}" if content.blank?
-
-        content
+        extract_text!(client.chat(parameters: parameters))
       rescue Faraday::Error => error
         raise RequestFailed, "#{error.class}: #{error.message}"
       end
 
       private
+
+      def extract_text!(response)
+        unless response.is_a?(Hash)
+          raise RequestFailed, "OpenRouter returned a malformed response"
+        end
+
+        choices = response["choices"]
+        first = choices.is_a?(Array) ? choices.first : nil
+        message = first.is_a?(Hash) ? first["message"] : nil
+        content = message.is_a?(Hash) ? message["content"] : nil
+
+        unless content.is_a?(String) && content.present?
+          raise RequestFailed, "OpenRouter returned no content"
+        end
+
+        content
+      end
 
       def client
         @client ||= ::OpenAI::Client.new(

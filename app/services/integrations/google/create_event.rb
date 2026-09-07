@@ -3,24 +3,27 @@ module Integrations
     class CreateEvent
       DEFAULT_CALENDAR_ID = "primary".freeze
 
-      def self.call(user:, event:)
-        new(user: user, event: event).call
+      def self.call(user:, event:, metadata: nil)
+        new(user: user, event: event, metadata: metadata).call
       end
 
-      def initialize(user:, event:)
+      def initialize(user:, event:, metadata:)
         @user = user
         @event = event
+        @metadata = metadata
       end
 
       def call
+        SourceMetadata.dump(metadata)
         created = client.calendar.insert_event(calendar_id, payload)
 
         LocalCalendarEvent.sync(
           user: user,
           external_event_id: created.id,
           external_calendar_id: calendar_id,
-          event: event,
-          time_zone: time_zone
+          event: EventPayload.from_provider(created, time_zone: time_zone),
+          time_zone: time_zone,
+          metadata: metadata
         )
 
         created
@@ -28,7 +31,7 @@ module Integrations
 
       private
 
-      attr_reader :user, :event
+      attr_reader :user, :event, :metadata
 
       def payload
         EventPayload.build(event, time_zone: time_zone)

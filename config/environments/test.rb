@@ -20,7 +20,9 @@ Rails.application.configure do
 
   # Show full error reports.
   config.consider_all_requests_local = true
-  config.cache_store = :null_store
+  # :null_store discards everything written to Rails.cache, which silently breaks
+  # PendingAction (used by every multi-stage Telegram conversation flow).
+  config.cache_store = :memory_store
 
   # Render exception templates for rescuable exceptions and raise for other exceptions.
   config.action_dispatch.show_exceptions = :rescuable
@@ -33,6 +35,9 @@ Rails.application.configure do
 
   config.active_job.queue_adapter = :test
 
+  config.action_mailer.delivery_method = :test
+  config.action_mailer.default_url_options = { host: "www.example.com" }
+
   # Print deprecation notices to the stderr.
   config.active_support.deprecation = :stderr
 
@@ -44,4 +49,16 @@ Rails.application.configure do
 
   # Raise error when a before_action's only/except options reference missing actions.
   config.action_controller.raise_on_missing_callback_actions = true
+
+  # Synthetic values so a bare `bundle exec rspec` boots without real secrets.
+  ENV["TELEGRAM_BOT_TOKEN"] ||= "test-telegram-bot-token"
+  ENV["OPEN_ROUTER_KEY"] ||= "test-open-router-key"
+  # Mount OmniAuth's Google strategy so POST /auth/google_oauth2 is the real
+  # request phase. Without these, google_oauth.rb skips the middleware and the
+  # route falls through to #new — the attack matrix would never reach Google.
+  ENV["GOOGLE_CLIENT_ID"] ||= "test-google-client-id"
+  ENV["GOOGLE_CLIENT_SECRET"] ||= "test-google-client-secret"
+  config.active_record.encryption.primary_key = "testPrimaryKeyNotForProduction1"
+  config.active_record.encryption.deterministic_key = "testDeterministicKeyNotForProd01"
+  config.active_record.encryption.key_derivation_salt = "testKeyDerivationSaltNotForPrd01"
 end

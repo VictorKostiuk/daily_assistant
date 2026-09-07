@@ -5,8 +5,6 @@ module Integrations
 
       Result = Struct.new(:kind, :title, :scheduled_at, :event_id, :offset_minutes, keyword_init: true)
 
-      MAX_OFFSET_MINUTES = 30.days.in_minutes.to_i
-
       def self.call(text:, time_zone:, candidates:)
         new(text: text, time_zone: time_zone, candidates: candidates).call
       end
@@ -61,7 +59,7 @@ module Integrations
           title: payload["title"].presence || "Reminder",
           scheduled_at: scheduled_at,
           event_id: kind == "event" ? payload["event_id"].to_s.presence : nil,
-          offset_minutes: kind == "event" ? payload["offset_minutes"].to_i.clamp(0, MAX_OFFSET_MINUTES) : nil
+          offset_minutes: kind == "event" ? payload["offset_minutes"].to_i.clamp(0, Reminder::MAX_OFFSET_MINUTES) : nil
         )
       end
     end

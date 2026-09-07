@@ -11,11 +11,8 @@ module TelegramBot
       "/remind" => Actions::RemindMe,
       "/reminders" => Actions::RemindersList,
       "/cancel_reminder" => Actions::CancelReminder,
-      "/daily_digest" => Actions::DailyDigestSettings
-    }.freeze
-
-    CALLBACK_ACTIONS = {
-      Actions::Connect::LOCAL_CALLBACK_DATA => Actions::Connect
+      "/daily_digest" => Actions::DailyDigestSettings,
+      "/reminder_preference" => Actions::ReminderPreferenceSettings
     }.freeze
 
     def initialize(bot:, logger:)
@@ -24,11 +21,9 @@ module TelegramBot
     end
 
     def call(update)
-      if update.is_a?(Telegram::Bot::Types::CallbackQuery)
-        handle_callback(update)
-      elsif update.respond_to?(:text)
-        handle_message(update)
-      end
+      return if update.is_a?(Telegram::Bot::Types::CallbackQuery)
+
+      handle_message(update) if update.respond_to?(:text)
     end
 
     private
@@ -53,13 +48,6 @@ module TelegramBot
       return unless action_class
 
       action_class.call(bot: bot, update: message, pending: pending)
-    end
-
-    def handle_callback(callback_query)
-      action_class = CALLBACK_ACTIONS[callback_query.data]
-      return unless action_class
-
-      action_class.call_callback(bot: bot, update: callback_query)
     end
   end
 end

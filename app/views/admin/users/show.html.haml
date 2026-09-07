@@ -8,6 +8,20 @@
       %h1.text-2xl.font-semibold.text-slate-950= user_full_name(@user)
       %p.mt-1.text-sm.text-slate-500= t(".subtitle", email: @user.email, date: l(@user.created_at.to_date, format: :long))
 
+    .mt-6.rounded-lg.border.border-slate-200.bg-white.p-6.shadow-sm
+      %h2.text-lg.font-semibold.text-slate-950= t(".account_heading")
+      - if @user == current_user
+        %p.mt-3.text-sm.text-slate-500= t(".cannot_edit_self")
+      - else
+        = form_with model: @user, url: admin_user_path(@user), method: :patch, class: "mt-4 flex flex-wrap items-end gap-4" do |form|
+          .flex.flex-col.gap-1
+            = form.label :role, t(".role_label"), class: "text-xs font-medium text-slate-500"
+            = form.select :role, User.roles.keys.map { |role| [ role.humanize, role ] }, {}, class: "rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
+          .flex.flex-col.gap-1
+            = form.label :status, t(".status_label"), class: "text-xs font-medium text-slate-500"
+            = form.select :status, User.statuses.keys.map { |status| [ status.humanize, status ] }, {}, class: "rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900"
+          = form.submit t(".save"), data: { turbo_confirm: t(".confirm") }, class: "rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+
     %h2.mt-8.text-lg.font-semibold.text-slate-950= t(".actions_heading")
 
     .mt-4.overflow-hidden.rounded-lg.border.border-slate-200.bg-white.shadow-sm

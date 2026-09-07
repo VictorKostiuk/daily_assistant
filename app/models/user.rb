@@ -11,6 +11,7 @@ class User < ApplicationRecord
   has_one :daily_digest, dependent: :destroy
 
   has_many :connection_tokens, dependent: :destroy
+  has_many :api_tokens, dependent: :destroy
   has_many :user_integrations, dependent: :destroy
   has_many :integration_providers, through: :user_integrations
 
@@ -52,5 +53,19 @@ class User < ApplicationRecord
 
   def google_integration
     user_integrations.for_provider(IntegrationProvider::GOOGLE).first
+  end
+
+  def active_for_authentication?
+    super && active?
+  end
+
+  def reset_password(new_password, new_password_confirmation)
+    transaction do
+      super.tap do |success|
+        raise ActiveRecord::Rollback unless success
+
+        api_tokens.where(revoked_at: nil).update_all(revoked_at: Time.current)
+      end
+    end
   end
 end

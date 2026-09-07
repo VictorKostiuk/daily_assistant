@@ -14,227 +14,13 @@ en:
       long: "%B %-d, %Y at %H:%M"
       hour_minute: "%H:%M"
 
-  accounts:
-    show:
-      meta:
-        title: "Account - Daily Assistant"
-      eyebrow: "Account"
-      title: "Your Daily Assistant account"
-      subtitle: "Review profile details, service connections, and the places you will use to connect new integrations."
-      empty: "Not set"
-      status_value: "%{status}"
-      actions:
-        my_actions: "My actions"
-        admin: "Admin panel"
-        edit: "Edit account"
-        sign_out: "Sign out"
-      summary:
-        name: "Name"
-        email: "Email"
-        status: "Status"
-      profile:
-        title: "Account information"
-        subtitle: "These details identify your workspace and help the assistant personalize reminders and summaries."
-        edit: "Edit account"
-        fields:
-          time_zone: "Time zone"
-          locale: "Locale"
-          role: "Role"
-          member_since: "Member since"
-      services:
-        title: "Connected services"
-        subtitle: "Connection links will live here as each integration is added."
-        count:
-          one: "%{count} connected"
-          other: "%{count} connected"
-        cards:
-          telegram:
-            title: "Telegram"
-            description: "Use Telegram for reminders, digests, and quick assistant commands."
-            connected: "Connected"
-            not_connected: "Not connected"
-            connect: "Connect Telegram"
-            cta: "Manage"
-          google:
-            title: "Google"
-            description: "One connection for every Google service the assistant uses, starting with your calendar."
-            statuses:
-              connected: "Connected"
-              reconnect_required: "Reconnect needed"
-              not_connected: "Not connected"
-            connect: "Connect Google"
-            reconnect: "Reconnect Google"
-            manage: "Manage"
-          reminders:
-            title: "Reminders"
-            description: "Choose where reminders should arrive and how they should behave around quiet hours."
-            status: "Coming soon"
-            cta: "Add link"
-          digest:
-            title: "Daily digest"
-            description: "Configure delivery time, channels, and what should be included in each daily summary."
-            status: "Coming soon"
-            cta: "Add link"
-      telegram:
-        title: "Telegram account"
-        subtitle: "Link a Telegram chat so the assistant can send reminders and digests, and take commands from the bot."
-        connected: "Connected"
-        not_connected: "Not connected"
-        no_username: "No username"
-        connect: "Connect Telegram"
-        disconnect: "Disconnect Telegram"
-        disconnect_confirm: "Disconnect Telegram? The assistant will stop sending messages to this chat."
-        connect_hint: "This opens the bot with a one-time link that expires in 15 minutes. Press Start in Telegram to finish."
-        fields:
-          chat_id: "Chat ID"
-          last_seen: "Last interaction"
-      google:
-        title: "Google"
-        subtitle: "One Google connection covers every Google service the assistant uses. Google stays the source of truth for the data it holds."
-        connected: "Connected account"
-        not_connected: "Not connected"
-        reconnect_required: "Access needs to be renewed"
-        connect: "Connect Google"
-        reconnect: "Reconnect Google"
-        disconnect: "Disconnect Google"
-        disconnect_confirm: "Disconnect Google? The assistant will lose access to every connected Google service."
-        connect_hint: "Connect your Google account to let the assistant read your schedule and create calendar events."
-        reconnect_hint: "Google no longer accepts the stored access. Reconnect to restore the services below."
-        no_services: "No Google services are enabled. Reconnect and approve the access the assistant asks for."
-        fields:
-          connected_at: "Connected since"
-          services: "Enabled services"
-        services:
-          calendar: "Calendar"
-      next:
-        title: "Profile changes"
-        subtitle: "Keep the account overview clean and use the edit form only when profile or password values need to change."
-        cta: "Go to edit form"
-
-  action_executions:
-    index:
-      meta:
-        title: "My actions - Daily Assistant"
-      back: "Back to account"
-      eyebrow: "Activity"
-      heading: "Your actions"
-      subtitle: "Everything the assistant has done on your behalf, most recent first."
-      empty: "No actions recorded yet."
-      columns:
-        when: "When"
-        action: "Action"
-        source: "Source"
-        status: "Status"
-        detail: "Detail"
-        duration: "Duration"
-
   integrations:
     google_connections:
-      connected: "Google is connected."
-      disconnected: "Google was disconnected."
-      failed: "We could not connect Google. Please try again."
       unavailable: "Google is not configured for this environment yet."
-    telegram_connections:
-      disconnected: "Telegram was disconnected."
-      unavailable: "The Telegram bot is not configured for this environment yet."
-
-  pages:
-    home:
-      meta:
-        title: "Daily Assistant"
-      brand: "Daily Assistant"
-      nav:
-        label: "Primary navigation"
-        features: "Features"
-        workflow: "Workflow"
-        access: "Access"
-        sign_in: "Sign in"
-        sign_up: "Create account"
-        account: "Account"
-        sign_out: "Sign out"
-        open_menu: "Open menu"
-      hero:
-        eyebrow: "Private beta for calmer daily planning"
-        title: "Daily Assistant"
-        subtitle: "A focused home for your schedule, reminders, integrations, and daily digest. Keep the day visible without turning planning into another job."
-        primary_cta: "Start planning"
-        secondary_cta: "See features"
-        stats:
-          digest:
-            value: "08:30"
-            label: "Digest ready"
-          integrations:
-            value: "4"
-            label: "Integrations"
-          reminders:
-            value: "12"
-            label: "Reminders"
-      preview:
-        initials: "DA"
-        title: "Today"
-        date: "Tuesday, July 28"
-        status: "Synced"
-        items:
-          digest:
-            title: "Morning digest"
-            description: "3 meetings, 2 reminders, and a quiet block before lunch."
-            time: "08:30"
-          calendar:
-            title: "Calendar cleanup"
-            description: "Move low-priority calls out of the focus window."
-            time: "11:00"
-          telegram:
-            title: "Telegram reminder"
-            description: "Send a summary before the evening review."
-            time: "18:15"
-        metrics:
-          queue:
-            label: "Queue"
-            value: "6"
-          sent:
-            label: "Sent"
-            value: "18"
-          saved:
-            label: "Saved"
-            value: "42m"
-      features:
-        eyebrow: "Features"
-        title: "Everything your day keeps asking for."
-        subtitle: "Calendar context, reminders, shortcuts, and digest delivery stay in one calm workspace."
-        cards:
-          digest:
-            number: "01"
-            title: "Daily digest"
-            description: "Get the next few hours, reminders, and open loops in one readable brief."
-          calendar:
-            number: "02"
-            title: "Calendar actions"
-            description: "Keep meetings, quiet hours, and schedule changes close to the assistant."
-          reminders:
-            number: "03"
-            title: "Smart reminders"
-            description: "Deliver reminders through the channels that actually fit the moment."
-      workflow:
-        eyebrow: "Workflow"
-        title: "From request to done."
-        subtitle: "The assistant keeps a simple trail of what happened, what changed, and what still needs attention."
-        cards:
-          capture:
-            title: "Capture"
-            description: "Drop in a reminder, event, shortcut, or support request."
-          coordinate:
-            title: "Coordinate"
-            description: "Connect calendar and message providers without losing the thread."
-          confirm:
-            title: "Confirm"
-            description: "See status, delivery attempts, and audit history when it matters."
-      early_access:
-        eyebrow: "Early access"
-        title: "Build the assistant around your real day."
-        subtitle: "Start with the core planning surface, then add integrations as the product grows."
-        cta: "Create account"
-      footer:
-        tagline: "Calendar, reminders, digest, and support in one place."
+      completed: "Google is connected. You can close this window and return to your app."
+      not_completed: "Google was not connected."
+      invalid: "This connection request is not valid."
+      completion_failed: "Google connection could not be completed. Return to the originating app and start a new connection."
 
   activerecord:
     attributes:
@@ -247,11 +33,6 @@ en:
         current_password: "Current password"
 
   devise:
-    shared:
-      links:
-        sign_in: "Already have an account? Sign in"
-        sign_up: "Need an account? Create one"
-        forgot_password: "Forgot your password?"
     sessions:
       new:
         meta:
@@ -271,59 +52,9 @@ en:
           subtitle: "Use your email and password to continue."
           email: "Email"
           password: "Password"
-          forgot_password: "Reset password"
           remember_me: "Remember me"
           submit: "Sign in"
-    registrations:
-      new:
-        meta:
-          title: "Create account - Daily Assistant"
-        eyebrow: "Create your workspace"
-        title: "Start with a calmer planning surface."
-        subtitle: "Create an account to keep reminders, integrations, and daily summaries connected to your workday."
-        summary:
-          title: "Built for everyday planning"
-          description: "Begin with the core account, then connect channels and calendars as the assistant grows."
-        form:
-          title: "Create account"
-          subtitle: "Tell us who the workspace belongs to."
-          first_name: "First name"
-          last_name: "Last name"
-          email: "Email"
-          password: "Password"
-          password_hint: "%{count} characters minimum"
-          password_confirmation: "Confirm password"
-          submit: "Create account"
-      edit:
-        meta:
-          title: "Edit account - Daily Assistant"
-        title: "Account settings"
-        subtitle: "Update your profile and password."
-        form:
-          first_name: "First name"
-          last_name: "Last name"
-          email: "Email"
-          time_zone: "Time zone"
-          time_zone_blank: "Use UTC"
-          time_zone_hint: "Used for your daily schedule, reminders, and digests."
-          password: "New password"
-          password_hint: "Leave blank to keep your current password."
-          password_confirmation: "Confirm new password"
-          current_password: "Current password"
-          current_password_hint: "Required to save account changes."
-          submit: "Save changes"
-        back: "Back to account"
-        cancel_account: "Cancel account"
-        cancel_confirm: "Are you sure you want to cancel your account?"
     passwords:
-      new:
-        meta:
-          title: "Reset password - Daily Assistant"
-        title: "Reset your password"
-        subtitle: "Enter your email and we will send password reset instructions."
-        form:
-          email: "Email"
-          submit: "Send reset instructions"
       edit:
         meta:
           title: "Choose new password - Daily Assistant"

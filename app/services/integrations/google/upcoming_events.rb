@@ -38,14 +38,14 @@ module Integrations
       end
 
       def entry_for(event)
-        timed_start = event.start&.date_time
+        attrs = EventPayload.from_provider(event, time_zone: time_zone)
 
         Entry.new(
           id: event.id,
-          title: event.summary.to_s.strip,
-          starts_at: timed_start&.in_time_zone || event.start&.date&.in_time_zone,
-          all_day: timed_start.nil?,
-          location: event.location.to_s.strip.presence
+          title: attrs.title,
+          starts_at: attrs.starts_at,
+          all_day: attrs.all_day,
+          location: attrs.location
         )
       end
 

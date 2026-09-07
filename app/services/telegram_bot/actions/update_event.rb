@@ -61,6 +61,7 @@ module TelegramBot
         started_at = Time.current
         event = event_from_hash(pending[:event])
 
+        # Sends the full Core event via PUT (events.update), unlike the API path, which sends only supplied fields via PATCH.
         updated = Integrations::Google::UpdateEvent.call(user: current_user, event_id: pending[:event_id], event: event)
         telegram_account.touch(:last_interaction_at)
 

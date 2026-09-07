@@ -1,5 +1,6 @@
 class ConnectionToken < ApplicationRecord
   TELEGRAM = "telegram".freeze
+  GOOGLE = "google".freeze
   TTL = 15.minutes
 
   belongs_to :user

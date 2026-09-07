@@ -29,9 +29,7 @@
           = f.email_field :email, autofocus: true, autocomplete: "email", class: "block w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
 
         .space-y-2
-          .flex.items-center.justify-between.gap-3
-            = f.label :password, t(".form.password"), class: "block text-sm font-medium text-slate-700"
-            = link_to t(".form.forgot_password"), new_password_path(resource_name), class: "text-sm font-semibold text-emerald-700 transition hover:text-emerald-800"
+          = f.label :password, t(".form.password"), class: "block text-sm font-medium text-slate-700"
           = f.password_field :password, autocomplete: "current-password", class: "block w-full rounded-lg border border-slate-300 bg-white px-3 py-3 text-sm text-slate-950 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100"
 
         - if devise_mapping.rememberable?
@@ -40,5 +38,3 @@
             = f.label :remember_me, t(".form.remember_me"), class: "text-sm text-slate-600"
 
         = f.submit t(".form.submit"), class: "w-full cursor-pointer rounded-lg bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
-
-      = render "devise/shared/links"
