@@ -3,6 +3,12 @@ module Integrations
     class CreateEvent
       DEFAULT_CALENDAR_ID = "primary".freeze
 
+      # The provider event, plus the calendar this operation actually selected.
+      # A caller that needs the local row must look it up with this calendar id:
+      # the provider event id alone does not identify a row, because the unique
+      # index is (user, provider, external_calendar_id, external_event_id).
+      Result = Struct.new(:provider_event, :calendar_id, keyword_init: true)
+
       def self.call(user:, event:, metadata: nil)
         new(user: user, event: event, metadata: metadata).call
       end
@@ -26,7 +32,7 @@ module Integrations
           metadata: metadata
         )
 
-        created
+        Result.new(provider_event: created, calendar_id: calendar_id)
       end
 
       private

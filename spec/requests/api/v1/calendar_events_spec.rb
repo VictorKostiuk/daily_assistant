@@ -53,6 +53,21 @@ RSpec.describe "API v1 calendar events", type: :request do
     [ client, calendar ]
   end
 
+  # SELECTs against calendar_events issued while the block runs. SCHEMA queries
+  # are excluded because they are connection setup, not per-request work.
+  def count_calendar_event_selects
+    count = 0
+    subscription = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+      next if payload[:name] == "SCHEMA"
+
+      count += 1 if payload[:sql].to_s.match?(/\ASELECT\b.*\bcalendar_events\b/im)
+    end
+    yield
+    count
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscription) if subscription
+  end
+
   def provider_error(status_code, message)
     Google::Apis::ClientError.new(
       message,
@@ -618,6 +633,152 @@ RSpec.describe "API v1 calendar events", type: :request do
       expect(response).to have_http_status(:bad_gateway)
       expect(json.dig("error", "code")).to eq("provider_error")
       expect(json.dig("error", "message")).not_to include("badRequest")
+    end
+
+    # OFFSET_TIME accepts shapes Time.iso8601 still rejects. Un-rescued, these
+    # left time_range as a bare ArgumentError, which BaseController does not
+    # handle — so a documented 422 arrived as a 500.
+    #
+    # "2026-02-30" is deliberately absent: Time.iso8601 parses it and rolls it
+    # to 2026-03-02, so it is not one of these cases.
+    {
+      "an impossible month in from" =>
+        { from: "2026-99-01T00:00:00Z", to: "2027-01-01T00:00:00Z", fields: %w[from] },
+      "an impossible month in to" =>
+        { from: "2026-01-01T00:00:00Z", to: "2027-99-01T00:00:00Z", fields: %w[to] },
+      "an impossible hour in from" =>
+        { from: "2026-01-01T25:00:00Z", to: "2027-01-01T00:00:00Z", fields: %w[from] },
+      "impossible values in both bounds" =>
+        { from: "2026-99-01T00:00:00Z", to: "2027-99-01T00:00:00Z", fields: %w[from to] }
+    }.each do |label, cse|
+      it "returns 422 naming the offending bound for #{label}" do
+        create(:user_integration, user: user)
+        expect(Integrations::Google::Client).not_to receive(:new)
+
+        get "/api/v1/calendar/events",
+            params: { from: cse[:from], to: cse[:to] },
+            headers: bearer(token)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json.dig("error", "code")).to eq("validation_error")
+        expect(json.dig("error", "details").keys).to match_array(cse[:fields])
+        cse[:fields].each { |field| expect(json.dig("error", "details", field)).to eq([ "is invalid" ]) }
+      end
+    end
+
+    # A raw "+" in a query string decodes to a space, which the regex already
+    # rejects. Percent-encoding is what lets an out-of-range offset reach
+    # Time.iso8601 at all, so this case is not a duplicate of the ones above.
+    it "returns 422 for a percent-encoded out-of-range UTC offset" do
+      create(:user_integration, user: user)
+      expect(Integrations::Google::Client).not_to receive(:new)
+
+      get "/api/v1/calendar/events?from=2026-01-01T00:00:00%2B99:00&to=2027-01-01T00:00:00Z",
+          headers: bearer(token)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json.dig("error", "code")).to eq("validation_error")
+      expect(json.dig("error", "details", "from")).to eq([ "is invalid" ])
+    end
+
+    it "rejects an impossible bound before any provider access, leaving the stored tokens untouched" do
+      # Connected on purpose: an unconnected user would be refused by
+      # google_ready? anyway, which would prove nothing about ordering.
+      integration = create(:user_integration, user: user)
+      before_attrs = integration.attributes.slice(
+        "access_token", "refresh_token", "token_expires_at", "status", "updated_at"
+      )
+      expect(Integrations::Google::Client).not_to receive(:new)
+      expect(Integrations::Google::ListEvents).not_to receive(:call)
+
+      get "/api/v1/calendar/events",
+          params: { from: "2026-99-01T00:00:00Z", to: "2027-01-01T00:00:00Z" },
+          headers: bearer(token)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(integration.reload.attributes.slice(*before_attrs.keys)).to eq(before_attrs)
+    end
+
+    it "annotates each event from its own local row and leaks nothing across rows" do
+      create(:user_integration, user: user)
+      _client, calendar = stub_google_client
+
+      create(:calendar_event, user: user, provider: "google", external_calendar_id: "primary",
+             external_event_id: "gcal_a",
+             metadata: { "source" => { "context_type" => "work", "source_app" => "daily-work" } })
+      create(:calendar_event, user: user, provider: "google", external_calendar_id: "primary",
+             external_event_id: "gcal_b",
+             metadata: { "source" => { "context_type" => "study", "source_entity_id" => "b-7" } })
+      # Same provider event id, different calendar — must not be picked up.
+      create(:calendar_event, user: user, provider: "google", external_calendar_id: "archive@group.calendar.google.com",
+             external_event_id: "gcal_c",
+             metadata: { "source" => { "context_type" => "life", "source_app" => "WRONG-CALENDAR" } })
+      # Same provider event id, different user — must not be picked up.
+      create(:calendar_event, user: other, provider: "google", external_calendar_id: "primary",
+             external_event_id: "gcal_d",
+             metadata: { "source" => { "context_type" => "global", "source_app" => "WRONG-USER" } })
+
+      ids = %w[gcal_a gcal_b gcal_c gcal_d gcal_e]
+      allow(calendar).to receive(:list_events).and_return(
+        Google::Apis::CalendarV3::Events.new(
+          items: ids.map { |id| timed_google_event(id: id) }, next_page_token: nil
+        )
+      )
+
+      get "/api/v1/calendar/events",
+          params: { from: "2026-08-10T00:00:00+02:00", to: "2026-08-11T00:00:00+02:00" },
+          headers: bearer(token)
+
+      expect(response).to have_http_status(:ok)
+      items = json["items"].index_by { |item| item["id"] }
+      expect(items.keys).to match_array(ids)
+
+      expect(items["gcal_a"]["context_type"]).to eq("work")
+      expect(items["gcal_a"]["source_app"]).to eq("daily-work")
+      expect(items["gcal_b"]["context_type"]).to eq("study")
+      expect(items["gcal_b"]["source_entity_id"]).to eq("b-7")
+      expect(items["gcal_b"]["source_app"]).to be_nil
+
+      # other calendar, other user, and never annotated at all
+      %w[gcal_c gcal_d gcal_e].each do |id|
+        expect(items[id]["context_type"]).to be_nil
+        expect(items[id]["source_app"]).to be_nil
+        expect(items[id]["source_entity_type"]).to be_nil
+        expect(items[id]["source_entity_id"]).to be_nil
+      end
+
+      # The response shape does not change with annotation: all four source
+      # keys are present on every item, null when unset.
+      json["items"].each do |item|
+        expect(item.keys).to include("context_type", "source_app", "source_entity_type", "source_entity_id")
+      end
+    end
+
+    it "keeps the calendar_events SELECT count bounded as the page size grows" do
+      create(:user_integration, user: user)
+      _client, calendar = stub_google_client
+
+      measured = [ 1, 5, 25, 100 ].to_h do |size|
+        allow(calendar).to receive(:list_events).and_return(
+          Google::Apis::CalendarV3::Events.new(
+            items: Array.new(size) { |i| timed_google_event(id: "gcal_#{i}") }, next_page_token: nil
+          )
+        )
+
+        count = count_calendar_event_selects do
+          get "/api/v1/calendar/events",
+              params: { from: "2026-08-10T00:00:00+02:00", to: "2026-08-11T00:00:00+02:00" },
+              headers: bearer(token)
+        end
+
+        expect(response).to have_http_status(:ok)
+        expect(json["items"].size).to eq(size)
+        [ size, count ]
+      end
+
+      # One batched lookup per request, whatever the page size. Before this was
+      # batched the count tracked the number of events returned.
+      expect(measured).to eq(1 => 1, 5 => 1, 25 => 1, 100 => 1)
     end
   end
 end

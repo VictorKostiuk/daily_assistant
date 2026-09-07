@@ -5,11 +5,24 @@ info:
   description: |
     JSON HTTP API for Daily Assistant Core (`/api/v1`).
 
-    Schemas and examples were derived by a manual read of the current
-    controllers and request specs. The only automated checks of this
-    document are a structural OpenAPI validator and a (path, verb) parity
-    comparison against `Rails.application.routes`. This file does not
-    claim automated schema or example conformance.
+    What is checked automatically, and what is not:
+
+    - Route parity runs in the suite: `spec/openapi_surface_spec.rb`
+      compares the live `/api/v1` (path, verb) surface to this document in
+      both directions. It is an ordinary spec, so it runs wherever the
+      suite runs, including the hosted `test` job that invokes
+      `bundle exec rspec`.
+    - Schemas and examples were derived by a manual read of the current
+      controllers and request specs. Nothing verifies them against live
+      responses, and this file claims no automated schema or example
+      conformance.
+    - Structural validation is performed separately, out of band, with an
+      external validator run by hand. Most recently
+      `openapi-spec-validator` 0.7.1, against this file as it now stands:
+      `openapi-spec-validator --schema 3.0 docs/openapi.yaml` printing
+      `docs/openapi.yaml: OK`. This repository contains no validator
+      dependency, rake task, or CI step, so structural validity is not
+      continuously enforced; re-run it by hand after editing this file.
 
     Conventions that apply unless an operation says otherwise:
 
@@ -17,10 +30,27 @@ info:
       (`wrap_parameters false`).
     - Success bodies are bare objects. There is no `data` envelope.
     - Every error the application renders uses one envelope:
-      `{"error":{"code","message","details"}}`. A request the framework
-      cannot parse, and any unhandled failure, is a bare
-      `{"status":…,"error":…}` that does not. A malformed JSON body is a
+      `{"error":{"code","message","details"}}`. A malformed JSON body is a
       422 envelope on the auth operations and a 400 elsewhere.
+    - A failure the application does not render — one reaching Rails'
+      public exception handler — does not use that envelope, and its body
+      depends on the request's `Accept` header. Measured in a
+      production-mode isolated copy on one such path
+      (`GET /api/v1/calendar/events` with an out-of-range `from`, before
+      that path was corrected to 422): with `Accept: application/json` the
+      response was 500 `application/json`
+      `{"status":500,"error":"Internal Server Error"}`; with `text/html`,
+      `*/*`, a browser `Accept` list, or no `Accept` header, it was 500
+      `text/html` serving the static `public/500.html`. Do not code
+      against a single shape here — that was one path, other unhandled
+      failures are not guaranteed to take the same renderer, and a client
+      that omits `Accept` receives HTML.
+    - "Non-blank" means non-empty after the server trims the value. Ruby's
+      `String#strip` removes only NUL and ASCII whitespace (U+0000,
+      U+0009-U+000D, U+0020), so a value made solely of those is 422, while
+      NBSP, EM SPACE and other Unicode spaces are *not* trimmed and count as
+      content. The `pattern` on these properties is the exact complement of
+      that set.
     - Unknown *query* parameters are ignored on every operation.
     - Unknown *body* keys are not uniform: reminders, calendar events, and
       AI messages reject them with 422 `validation_error`; `signup`
@@ -325,15 +355,21 @@ paths:
       operationId: connectGoogle
       summary: Start Google connect
       description: |
-        Browser-originated initiation. Requires a bearer token **and** the
-        session cookie. This call stores the connect intent in the existing
-        Rails session; the returned URL only validates that
-        already-established binding and never establishes it. The launch
-        URL is reusable until the token is claimed or expires (15 minutes).
-        The token claim is the single-use event, not the first open.
+        Browser-originated initiation. Requires a bearer token, and requires
+        the browser to handle cookies. This call issues the connection token
+        and *writes* the connect intent into the session — storing it through
+        the existing Rails session mechanism rather than a second bespoke
+        cookie — so it **sets** the session cookie on its own response. A
+        fresh browser with no prior session can initiate; what it must do is
+        return that cookie on the transport request and the callback. The
+        returned URL only validates the already-established binding and never
+        establishes it. The launch URL is reusable until the token is claimed
+        or expires (15 minutes). The token claim is the single-use event, not
+        the first open.
 
         The browser must send `Authorization: Bearer <token>` and
-        `credentials: include` so the session cookie is stored. `APP_URL` (pinned OmniAuth callback) and the cookie host
+        `credentials: include` so the session cookie is stored and returned.
+        `APP_URL` (pinned OmniAuth callback) and the cookie host
         must be the same host. Allowed origins are the request's own origin,
         a missing `Origin`, or an exact HTTPS origin listed in
         `GOOGLE_CONNECT_ORIGINS`. Any other origin is 403
@@ -1099,6 +1135,7 @@ components:
         context_type:
           type: string
           nullable: true
+          enum: [life, study, work, global, null]
           description: One of `life`, `study`, `work`, `global`, or `null`. Always present on this resource.
         source_app:
           type: string
@@ -1132,6 +1169,9 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
         scheduled_at:
           type: string
           description: |
@@ -1146,16 +1186,26 @@ components:
         context_type:
           type: string
           nullable: true
-          description: One of `life`, `study`, `work`, `global`.
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
         source_app:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_type:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_id:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
 
     ReminderPatch:
       type: object
@@ -1168,6 +1218,9 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
         scheduled_at:
           type: string
         offset_minutes:
@@ -1178,15 +1231,26 @@ components:
         context_type:
           type: string
           nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
         source_app:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_type:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_id:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
 
     CalendarEvent:
       type: object
@@ -1230,6 +1294,7 @@ components:
         context_type:
           type: string
           nullable: true
+          enum: [life, study, work, global, null]
         source_app:
           type: string
           nullable: true
@@ -1239,7 +1304,6 @@ components:
         source_entity_id:
           type: string
           nullable: true
-
     CalendarEventList:
       type: object
       additionalProperties: false
@@ -1262,6 +1326,9 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
         description:
           type: string
           nullable: true
@@ -1278,15 +1345,26 @@ components:
         context_type:
           type: string
           nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
         source_app:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_type:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_id:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
 
     CalendarEventPatch:
       type: object
@@ -1298,6 +1376,9 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
         description:
           type: string
           nullable: true
@@ -1313,15 +1394,26 @@ components:
         context_type:
           type: string
           nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
         source_app:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_type:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_id:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
 
     AiMessageRequest:
       type: object
@@ -1334,19 +1426,33 @@ components:
       properties:
         message:
           type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
           maxLength: 10000
+          description: Must be non-blank after server trimming; a value that trims to empty is 422 `can't be blank`. Over 10000 characters is 422 `is too long`.
         context_type:
           type: string
           nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
         source_app:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_type:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
         source_entity_id:
           type: string
           nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
 
     AiMessageResponse:
       type: object
@@ -1367,6 +1473,8 @@ components:
           description: Server-configured model Core requested. Not client-selectable.
         context_type:
           type: string
+          enum: [life, study, work, global]
+          description: One of `life`, `study`, `work`, `global`. Present only when the request supplied it.
         source_app:
           type: string
         source_entity_type:

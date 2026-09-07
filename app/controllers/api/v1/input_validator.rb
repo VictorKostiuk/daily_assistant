@@ -103,17 +103,29 @@ module Api
       def self.time_range(raw)
         raw = stringify(raw)
         details = {}
+        bounds = {}
         %w[from to].each do |key|
-          if raw[key].blank?
+          value = raw[key]
+          if value.blank?
             details[key] = [ "can't be blank" ]
-          elsif !raw[key].is_a?(String) || !raw[key].match?(OFFSET_TIME)
+          elsif !value.is_a?(String) || !value.match?(OFFSET_TIME)
             details[key] = [ "is invalid" ]
+          else
+            # OFFSET_TIME accepts shapes Time.iso8601 still rejects — month 99,
+            # hour 25, offset +99:00. Without this rescue they reach the
+            # controller as a bare ArgumentError, which BaseController does not
+            # handle, so the caller gets a 500 instead of the promised 422.
+            begin
+              bounds[key] = Time.iso8601(value)
+            rescue ArgumentError
+              details[key] = [ "is invalid" ]
+            end
           end
         end
         raise Error.new(details) if details.any?
 
-        from = Time.iso8601(raw["from"])
-        to = Time.iso8601(raw["to"])
+        from = bounds["from"]
+        to = bounds["to"]
         raise Error.new("from" => [ "is invalid" ]) unless from < to
 
         [ from, to ]

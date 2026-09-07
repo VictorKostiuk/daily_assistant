@@ -21,19 +21,27 @@ module TelegramBot
         started_at = Time.current
 
         event = Integrations::OpenRouter::ParseEvent.call(text: description, time_zone: time_zone)
-        created = Integrations::Google::CreateEvent.call(user: current_user, event: event)
+        result = Integrations::Google::CreateEvent.call(user: current_user, event: event)
         telegram_account.touch(:last_interaction_at)
 
         record_action!(action_type: ACTION_TYPE, status: :succeeded, display_text: event.title, started_at: started_at)
-        send_message(confirmation_for(event, created), disable_web_page_preview: true)
+        send_message(confirmation_for(event, result.provider_event), disable_web_page_preview: true)
 
-        offer_reminder(created)
+        offer_reminder(result)
       rescue StandardError => error
         handle_event_error!(error, i18n_scope: "commands.setup_event", action_type: ACTION_TYPE, display_text: description, started_at: started_at)
       end
 
-      def offer_reminder(created)
-        local_event = current_user.calendar_events.find_by(external_event_id: created.id, provider: "google")
+      def offer_reminder(result)
+        # Resolve against the calendar CreateEvent selected, not a separately
+        # derived one. A provider event id is unique per calendar, not per user:
+        # the same id in a second calendar would otherwise attach the reminder
+        # to the wrong local event, and so to the wrong time.
+        local_event = current_user.calendar_events.find_by(
+          provider: "google",
+          external_calendar_id: result.calendar_id,
+          external_event_id: result.provider_event.id
+        )
         return if local_event.blank?
 
         preference = current_user.reminder_preference

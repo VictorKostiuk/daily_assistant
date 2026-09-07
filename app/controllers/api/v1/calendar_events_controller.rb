@@ -19,8 +19,9 @@ module Api
           time_max: request.query_parameters["to"] || request.query_parameters[:to],
           page_token: request.query_parameters["page_token"] || request.query_parameters[:page_token]
         )
+        annotations = local_annotations_for(result.events)
         render json: {
-          items: result.events.map { |event| event_json(event) },
+          items: result.events.map { |event| event_json(event, annotations: annotations) },
           next_page_token: result.next_page_token
         }
       end
@@ -29,12 +30,12 @@ module Api
         attrs = InputValidator.calendar_create(request.request_parameters, time_zone: caller_time_zone)
         return unless google_ready?
 
-        created = Integrations::Google::CreateEvent.call(
+        result = Integrations::Google::CreateEvent.call(
           user: current_api_user,
           event: core_event_from(attrs),
           metadata: attrs["metadata"]
         )
-        render json: event_json(created), status: :created
+        render json: event_json(result.provider_event), status: :created
       end
 
       def update
@@ -108,13 +109,35 @@ module Api
         )
       end
 
-      def event_json(google_event)
-        core = Integrations::Google::EventPayload.from_provider(google_event, time_zone: caller_time_zone)
-        record = current_api_user.calendar_events.find_by(
+      # One query for the whole page's local rows, keyed by provider event id.
+      # Scoped by caller, provider and the selected calendar, so the same
+      # provider event id in another calendar — or another user's row — cannot
+      # be picked up here.
+      def local_annotations_for(google_events)
+        ids = google_events.map(&:id).compact.uniq
+        return {} if ids.empty?
+
+        current_api_user.calendar_events.where(
           provider: "google",
           external_calendar_id: calendar_id,
-          external_event_id: google_event.id
-        )
+          external_event_id: ids
+        ).index_by(&:external_event_id)
+      end
+
+      # `annotations` is the batched page lookup. Single-event actions pass
+      # nothing and keep resolving one row directly.
+      def event_json(google_event, annotations: nil)
+        core = Integrations::Google::EventPayload.from_provider(google_event, time_zone: caller_time_zone)
+        record =
+          if annotations
+            annotations[google_event.id]
+          else
+            current_api_user.calendar_events.find_by(
+              provider: "google",
+              external_calendar_id: calendar_id,
+              external_event_id: google_event.id
+            )
+          end
         source = SourceMetadata.load(record&.metadata)
         {
           id: google_event.id,

@@ -1,6 +1,19 @@
 # Core API guide
 
-JSON HTTP API at `/api/v1`. The machine-readable contract is [`openapi.yaml`](openapi.yaml). Schemas and examples in that file were derived by a manual read of the current controllers and request specs; only a structural OpenAPI validator and a (path, verb) parity check are automated.
+JSON HTTP API at `/api/v1`. The machine-readable contract is [`openapi.yaml`](openapi.yaml).
+
+What is and is not checked automatically:
+
+- **Route parity runs in the suite.** `spec/openapi_surface_spec.rb` compares the live `/api/v1` (path, verb) surface to the document in both directions. It is an ordinary spec, so it runs wherever the suite runs — including the hosted `test` job, which invokes `bundle exec rspec`.
+- **Schemas and examples are derived manually**, by reading the current controllers and request specs. Nothing verifies them against live responses.
+- **Structural validation is performed separately, out of band**, with an external validator run by hand. Most recently `openapi-spec-validator` 0.7.1, against this file as it now stands:
+
+  ```
+  openapi-spec-validator --schema 3.0 docs/openapi.yaml
+  docs/openapi.yaml: OK
+  ```
+
+  There is no validator dependency, rake task, or CI step in this repository, so structural validity is **not** continuously enforced; re-run it by hand after editing the file.
 
 ## Two kinds of client
 
@@ -22,14 +35,16 @@ There is **no general cross-origin CORS support** for this API. That is not a ba
 
 ### 2. Browser-originated Google connect
 
-`POST /api/v1/integrations/google/connect` is different in **transport**: the consumer's browser calls it, including across a trusted sibling origin. It requires **both** `Authorization: Bearer <token>` **and** the Core session cookie (`credentials: include`). The bearer binds the browser transaction to the API identity; the cookie holds the connect intent. Sending the cookie without the bearer is 401.
+`POST /api/v1/integrations/google/connect` is different in **transport**: the consumer's browser calls it, including across a trusted sibling origin. It requires `Authorization: Bearer <token>`, and the browser must handle cookies (`credentials: include`).
+
+**A fresh browser with no prior session can initiate.** This call issues the connection token and *writes* the connect intent into the session, so it **sets** the cookie on its own response. The requirement is not that the caller already holds a cookie — it is that the browser accepts the cookie this response sets and sends it back on the transport request and on the callback. The bearer binds the browser transaction to the API identity; the cookie carries the connect intent. Sending a cookie without the bearer is 401.
 
 - Only **exact trusted sibling HTTPS origins** (plus same-origin and a missing `Origin`) are allowed. The allowlist is `GOOGLE_CONNECT_ORIGINS`. Any other origin is 403 `origin_not_allowed`.
 - The browser must send `credentials: include`.
 - `APP_URL` pins the OmniAuth callback and must be the same host that sets the session cookie.
 - There is **no backend-forwarded-link flow**. A forwarded URL must never establish intent.
 
-**Ordering is the security property:** the initiation `POST` establishes the intent in the existing Rails session. Opening the returned URL only validates that already-established binding — it never establishes it. The launch URL is reusable until the token is consumed or expires (15 minutes). The **token claim** is the single-use event, not the first open.
+**Ordering is the security property:** the initiation `POST` establishes the intent, storing it through the existing Rails session mechanism rather than a second bespoke cookie. Opening the returned URL only validates that already-established binding — it never establishes it. The launch URL is reusable until the token is consumed or expires (15 minutes). The **token claim** is the single-use event, not the first open.
 
 `OPTIONS /api/v1/integrations/google/connect` is the unauthenticated CORS preflight for that POST. It is not unconditional: a disallowed origin is 403 `origin_not_allowed`.
 
@@ -37,7 +52,15 @@ There is **no general cross-origin CORS support** for this API. That is not a ba
 
 - Bodies are raw and flat. There is no root wrapper. `{"reminder":{...}}` to reminders is 422 `reminder is unknown`. `{"user":{...}}` to signup is 422 `email can't be blank` — unknown keys were dropped, so the nested fields were never read.
 - Success bodies are bare objects. No `data` envelope. List endpoints have their own envelope (`items` plus a paging key).
-- Every error the application renders uses `{"error":{"code","message","details"}}`. A request the framework cannot parse, and any unhandled failure, is a bare `{"status":…,"error":…}` that does not. A malformed JSON body is a 422 envelope on the auth operations (`signup`, `login`, both `/api/v1/auth/password`) and a 400 elsewhere.
+- Every error the application renders uses `{"error":{"code","message","details"}}`. A malformed JSON body is a 422 envelope on the auth operations (`signup`, `login`, both `/api/v1/auth/password`) and a 400 elsewhere.
+- A failure the application does **not** render — one that reaches Rails' public exception handler — does not use that envelope, and **its body depends on the request's `Accept` header**. Measured in a production-mode isolated copy on one such path (`GET /api/v1/calendar/events` with a `from` that matched the timestamp format but was out of range, before that path was corrected to 422):
+
+  | `Accept` | Status | `content-type` | Body |
+  | --- | --- | --- | --- |
+  | `application/json` | 500 | `application/json` | `{"status":500,"error":"Internal Server Error"}` |
+  | `text/html`, `*/*`, a browser `Accept` list, or no `Accept` header at all | 500 | `text/html` | the static `public/500.html` page |
+
+  Do not code against a single shape here. That table was measured on that one path; other unhandled failures are not guaranteed to take the same renderer. Note in particular that `*/*` and an absent `Accept` both yield HTML, so a JSON client that does not send `Accept: application/json` will receive an HTML page.
 
 Unknown **query** parameters are ignored on every operation.
 

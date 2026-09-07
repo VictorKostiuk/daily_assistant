@@ -42,11 +42,15 @@ RSpec.describe TelegramBot::Actions::SetupEvent do
       )
     end
     let(:created_event) { instance_double(Google::Apis::CalendarV3::Event, id: "gcal_event_x", html_link: "https://calendar.google.com/x") }
+    # The user has no user_setting here, so CreateEvent selects "primary".
+    let(:create_result) do
+      Integrations::Google::CreateEvent::Result.new(provider_event: created_event, calendar_id: "primary")
+    end
 
     before do
       create(:user_integration, user: telegram_account.user)
       allow(Integrations::OpenRouter::ParseEvent).to receive(:call).and_return(event)
-      allow(Integrations::Google::CreateEvent).to receive(:call).and_return(created_event)
+      allow(Integrations::Google::CreateEvent).to receive(:call).and_return(create_result)
     end
 
     it "parses the description, creates the event, and confirms it" do
@@ -83,6 +87,7 @@ RSpec.describe TelegramBot::Actions::SetupEvent do
     context "with a synced local calendar_event for the created event" do
       let!(:local_event) do
         create(:calendar_event, user: telegram_account.user, external_event_id: created_event.id, provider: "google",
+               external_calendar_id: "primary",
                title: event.title, starts_at: event.starts_at, ends_at: event.ends_at)
       end
 
@@ -157,6 +162,68 @@ RSpec.describe TelegramBot::Actions::SetupEvent do
         }.not_to raise_error
 
         expect(telegram_account.user.reminders.last.offset_minutes).to eq(Reminder::MAX_OFFSET_MINUTES)
+      end
+    end
+
+    # A provider event id identifies a row only together with its calendar:
+    # the unique index is (user, provider, external_calendar_id,
+    # external_event_id), so two calendars can legitimately hold the same id.
+    context "when the same provider event id also exists in another calendar" do
+      let(:selected_calendar) { "work@group.calendar.google.com" }
+
+      # "archive@" is chosen because it was OBSERVED to expose the defect, not
+      # because the query promises an order — `find_by` has no ORDER BY. The
+      # plan measured on this schema is
+      #   SEARCH calendar_events USING INDEX
+      #     index_calendar_events_on_user_provider_calendar_external_id
+      #     (user_id=? AND provider=?)
+      # i.e. only the two-column prefix is used and the remaining index entries
+      # are scanned in external_calendar_id order, so "archive@" is reached
+      # before "work@" whichever row is inserted first. A competing calendar
+      # sorting *after* "work@" returned the correct row and hid the bug
+      # completely, which is why the fixture value is load-bearing.
+      let(:competing_calendar) { "archive@group.calendar.google.com" }
+      let(:create_result) do
+        Integrations::Google::CreateEvent::Result.new(provider_event: created_event, calendar_id: selected_calendar)
+      end
+
+      let!(:competing_event) do
+        create(:calendar_event, user: telegram_account.user, provider: "google",
+               external_calendar_id: competing_calendar, external_event_id: created_event.id,
+               title: "Archived copy", starts_at: event.starts_at - 10.hours, ends_at: event.ends_at - 10.hours)
+      end
+      let!(:selected_event) do
+        create(:calendar_event, user: telegram_account.user, provider: "google",
+               external_calendar_id: selected_calendar, external_event_id: created_event.id,
+               title: event.title, starts_at: event.starts_at, ends_at: event.ends_at)
+      end
+
+      before { UserSetting.create!(user_id: telegram_account.user.id, default_calendar_id: selected_calendar) }
+
+      it "applies the default reminder to the event in the calendar CreateEvent wrote to, at that event's time" do
+        create(:reminder_preference, user: telegram_account.user,
+               event_reminder_mode: :always_apply_default, default_event_offset_minutes: 30)
+
+        call_action("/setup_event dinner with Anna tomorrow at 19:00", telegram_account)
+
+        reminder = telegram_account.user.reminders.last
+        expect(reminder.remindable).to eq(selected_event)
+        expect(reminder.remindable).not_to eq(competing_event)
+        expect(reminder.scheduled_at).to eq(selected_event.starts_at - 30.minutes)
+        expect(reminder.scheduled_at).not_to eq(competing_event.starts_at - 30.minutes)
+      end
+
+      it "offers the reminder for that same event when the preference asks every time" do
+        create(:reminder_preference, user: telegram_account.user, event_reminder_mode: :ask_every_time)
+        allow(TelegramBot::PendingAction).to receive(:set).and_call_original
+
+        call_action("/setup_event dinner with Anna tomorrow at 19:00", telegram_account)
+
+        expect(TelegramBot::PendingAction).to have_received(:set).with(
+          telegram_account.telegram_user_id.to_i,
+          command: described_class::COMMAND, stage: "reminder_choice",
+          calendar_event_id: selected_event.id
+        )
       end
     end
   end

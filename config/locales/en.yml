@@ -55,6 +55,11 @@ en:
           remember_me: "Remember me"
           submit: "Sign in"
     passwords:
+      completed:
+        meta:
+          title: "Password changed - Daily Assistant"
+        title: "Password changed"
+        body: "Your password has been changed. You can close this window and return to your app."
       edit:
         meta:
           title: "Choose new password - Daily Assistant"

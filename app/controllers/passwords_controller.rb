@@ -15,7 +15,10 @@ class PasswordsController < ApplicationController
     @reset_password_token = params[:reset_password_token]
 
     if @user.errors.empty?
-      redirect_to new_user_session_path, notice: t("devise.passwords.updated_not_active")
+      # Terminal confirmation, for members and staff alike. Redirecting here
+      # sent members to the staff-only HTML sign-in, which rejected the password
+      # they had just set. No session, no new token, no redirect.
+      render :completed, status: :ok
     else
       render :edit, status: :unprocessable_content
     end

@@ -4,6 +4,17 @@ RSpec.describe "Password recovery", type: :request do
   let(:password) { "password123" }
   let(:user) { create(:user, password: password) }
 
+  # A completed HTML reset must terminate here for members and staff alike.
+  # HTML sign-in is staff-only, so redirecting a member to it told them the
+  # password they had just set was invalid.
+  CONFIRMATION = "Your password has been changed. You can close this window and return to your app.".freeze
+
+  def expect_terminal_confirmation
+    expect(response).to have_http_status(:ok)
+    expect(response.body).to include(CONFIRMATION)
+    expect(response.body).not_to include("Invalid Email or password")
+  end
+
   def issue_token_for(user)
     ApiToken.issue!(user: user).first
   end
@@ -30,7 +41,7 @@ RSpec.describe "Password recovery", type: :request do
       expect(response.body).not_to include("/users/password/new")
     end
 
-    it "completes a reset over HTML, revokes API tokens, and issues no session" do
+    it "completes a member reset with a terminal confirmation, revokes API tokens, and issues no session" do
       token = issue_token_for(user)
       raw = raw_reset_token_for(user)
 
@@ -40,7 +51,8 @@ RSpec.describe "Password recovery", type: :request do
         password_confirmation: "new-password-1"
       }
 
-      expect(response).to redirect_to(new_user_session_path)
+      expect_terminal_confirmation
+      expect(user).not_to be_admin
       expect(user.reload.valid_password?("new-password-1")).to be(true)
       expect(ApiToken.find_by!(token_digest: ApiToken.digest(token)).revoked_at).to be_present
       expect(request.env["warden"].user).to be_nil
@@ -77,7 +89,7 @@ RSpec.describe "Password recovery", type: :request do
       }
     }.not_to change(ApiToken, :count)
 
-    expect(response).to redirect_to(new_user_session_path)
+    expect_terminal_confirmation
     expect(user.reload.valid_password?("new-password-1")).to be(true)
     expect(ApiToken.find_by!(token_digest: ApiToken.digest(existing_token)).revoked_at).to be_present
     expect(user.api_tokens.where(revoked_at: nil)).to be_empty
@@ -97,9 +109,10 @@ RSpec.describe "Password recovery", type: :request do
       password_confirmation: "staff-password-1"
     }
 
-    expect(response).to redirect_to(new_user_session_path)
+    expect_terminal_confirmation
     expect(admin.reload.valid_password?("staff-password-1")).to be(true)
 
+    # Staff get the same terminal page, and sign-in still works from there.
     post user_session_path, params: { user: { email: admin.email, password: "staff-password-1" } }
     expect(response).to redirect_to(root_path)
     get admin_users_path
