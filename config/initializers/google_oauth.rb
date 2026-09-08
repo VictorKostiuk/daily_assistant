@@ -1,6 +1,6 @@
 # Google is one integration provider. Each Google service is unlocked by its own
-# scopes, so adding one means adding it here, exposing an accessor on
-# Integrations::Google::Client, and adding a label under accounts.show.google.services.
+# scopes, so adding one means adding it here and exposing an accessor on
+# Integrations::Google::Client.
 account_scopes = %w[email profile]
 
 service_scopes = {
@@ -23,6 +23,27 @@ OmniAuth.config.failure_raise_out_environments = []
 
 google_oauth = Rails.application.config.x.google_oauth
 
+# Request-phase-only guard. setup_phase also runs on the callback, before
+# omniauth.params is restored (omniauth/strategy.rb:268-276), and a real
+# callback query is Google's code/state — there is no token in it. Scope the
+# query-token check to POST so genuine callbacks are not rejected. The
+# callback re-checks intent + token (from env["omniauth.params"]) + active
+# user independently. Abort messages stay generic: fail! puts message_key
+# into the failure URL.
+#
+# Production preconditions (not enforced here; a mismatch fails in
+# production while every test still passes):
+# - the initiating origin is same-site with Core (session cookie is SameSite=Lax)
+# - APP_URL, which pins the callback URI, is the same host that set the session cookie
+google_connect_setup = lambda do |env|
+  next unless env["REQUEST_METHOD"] == "POST"
+
+  token = Rack::Utils.parse_query(env["QUERY_STRING"].to_s)["token"]
+  unless Integrations::Google::ConnectIntent.valid?(session: env["rack.session"], token: token)
+    raise Integrations::Google::ConnectAborted
+  end
+end
+
 if google_oauth.client_id.present? && google_oauth.client_secret.present?
   Rails.application.config.middleware.use OmniAuth::Builder do
     provider :google_oauth2,
@@ -32,6 +53,11 @@ if google_oauth.client_id.present? && google_oauth.client_secret.present?
              redirect_uri: google_oauth.redirect_uri,
              access_type: "offline",
              prompt: "consent",
-             skip_jwt: true
+             skip_jwt: true,
+             # The transport Referer is /connect?token=…; the default origin_param
+             # would copy that into the failure URL as origin=, whose key is not
+             # filtered, so the handoff would log in cleartext.
+             origin_param: false,
+             setup: google_connect_setup
   end
 end

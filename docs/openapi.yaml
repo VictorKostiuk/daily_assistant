@@ -1,0 +1,1599 @@
+openapi: 3.0.3
+info:
+  title: Daily Assistant Core API
+  version: "1.0.0"
+  description: |
+    JSON HTTP API for Daily Assistant Core (`/api/v1`).
+
+    What is checked automatically, and what is not:
+
+    - Route parity runs in the suite: `spec/openapi_surface_spec.rb`
+      compares the live `/api/v1` (path, verb) surface to this document in
+      both directions. It is an ordinary spec, so it runs wherever the
+      suite runs, including the hosted `test` job that invokes
+      `bundle exec rspec`.
+    - Schemas and examples were derived by a manual read of the current
+      controllers and request specs. Nothing verifies them against live
+      responses, and this file claims no automated schema or example
+      conformance.
+    - Structural validation is performed separately, out of band, with an
+      external validator run by hand. Most recently
+      `openapi-spec-validator` 0.7.1, against this file as it now stands:
+      `openapi-spec-validator --schema 3.0 docs/openapi.yaml` printing
+      `docs/openapi.yaml: OK`. This repository contains no validator
+      dependency, rake task, or CI step, so structural validity is not
+      continuously enforced; re-run it by hand after editing this file.
+
+    Conventions that apply unless an operation says otherwise:
+
+    - Request bodies are raw and flat. There is no root wrapper key
+      (`wrap_parameters false`).
+    - Success bodies are bare objects. There is no `data` envelope.
+    - Every error the application renders uses one envelope:
+      `{"error":{"code","message","details"}}`. A malformed JSON body is a
+      422 envelope on the auth operations and a 400 elsewhere.
+    - A failure the application does not render — one reaching Rails'
+      public exception handler — does not use that envelope, and its body
+      depends on the request's `Accept` header. Measured in a
+      production-mode isolated copy on one such path
+      (`GET /api/v1/calendar/events` with an out-of-range `from`, before
+      that path was corrected to 422): with `Accept: application/json` the
+      response was 500 `application/json`
+      `{"status":500,"error":"Internal Server Error"}`; with `text/html`,
+      `*/*`, a browser `Accept` list, or no `Accept` header, it was 500
+      `text/html` serving the static `public/500.html`. Do not code
+      against a single shape here — that was one path, other unhandled
+      failures are not guaranteed to take the same renderer, and a client
+      that omits `Accept` receives HTML.
+    - "Non-blank" means non-empty after the server trims the value. Ruby's
+      `String#strip` removes only NUL and ASCII whitespace (U+0000,
+      U+0009-U+000D, U+0020), so a value made solely of those is 422, while
+      NBSP, EM SPACE and other Unicode spaces are *not* trimmed and count as
+      content. The `pattern` on these properties is the exact complement of
+      that set.
+    - Unknown *query* parameters are ignored on every operation.
+    - Unknown *body* keys are not uniform: reminders, calendar events, and
+      AI messages reject them with 422 `validation_error`; `signup`
+      silently drops them; `login` and both password operations ignore
+      them.
+    - `PUT /api/v1/reminders/{id}` does **not** replace the resource. It
+      merges, identical to PATCH. A client applying RFC PUT semantics
+      will silently get a merge.
+
+    Auth: `Authorization: Bearer <token>` except `signup`, `login`, both
+    `/api/v1/auth/password` operations, and the Google-connect OPTIONS
+    preflight. A Devise session cookie is not accepted in place of a
+    bearer. 401 `unauthorized` covers an absent, malformed, unknown,
+    expired, or revoked token, and a user who is not `active`.
+
+    There is no general cross-origin CORS support. Cross-origin browser
+    access is enabled only for Google connect initiation.
+externalDocs:
+  description: Usage guide (docs/api-guide.md)
+  url: ./api-guide.md
+servers:
+  - url: /
+    description: The Core host serving this API
+tags:
+  - name: Auth
+    description: |
+      `signup`, `login`, and both `/api/v1/auth/password` operations map
+      malformed JSON to 422 `validation_error` with
+      `details.base = ["is malformed"]`. Other body-accepting operations
+      do not: the framework returns 400.
+  - name: Me
+  - name: Integrations
+  - name: Reminders
+  - name: Calendar
+  - name: AI
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/me:
+    get:
+      tags: [Me]
+      operationId: getMe
+      summary: Current user
+      description: Returns the allowlisted profile fields for the bearer user.
+      responses:
+        "200":
+          description: The authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+              example:
+                id: 1
+                email: ada@example.com
+                first_name: Ada
+                last_name: Lovelace
+                time_zone: Europe/Rome
+                locale: en
+                role: member
+                status: active
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/signup:
+    post:
+      tags: [Auth]
+      operationId: signup
+      summary: Create an account
+      description: |
+        Creates an `active` `member`. Role, status, and id in the body are
+        ignored (silently dropped by `params.permit`). Does not issue a
+        bearer token; the client must log in afterwards.
+
+        Unknown body keys are silently dropped, not rejected. A wrapper
+        such as `{"user":{...}}` therefore yields 422 `email can't be
+        blank`, not `user is unknown`.
+
+        `password_confirmation` is not required. If supplied it must match
+        `password`; if omitted there is no confirmation check.
+
+        Rate limit: 5 requests per hour per IP. Exceeding it returns 429
+        `too_many_requests`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+            example:
+              email: ada@example.com
+              password: password123
+              password_confirmation: password123
+              first_name: Ada
+              last_name: Lovelace
+              time_zone: Europe/Rome
+              locale: en
+      responses:
+        "201":
+          description: Account created. Same shape as `GET /api/v1/me`. No token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Issue a bearer token
+      description: |
+        Returns a working bearer token. `expires_at` is the ISO-8601 value
+        from the persisted row (30 days from issuance). Unknown email,
+        wrong password, and a non-`active` account all return the same
+        401 body. Unknown body keys are ignored.
+
+        Rate limit: 10 requests per 3 minutes per IP. Exceeding it
+        returns 429 `too_many_requests`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: ada@example.com
+              password: password123
+      responses:
+        "200":
+          description: Bearer token. Shown once; the plaintext is not persisted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+              example:
+                token: example-token
+                token_type: Bearer
+                expires_at: "2026-10-06T12:00:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/auth/logout:
+    delete:
+      tags: [Auth]
+      operationId: logout
+      summary: Revoke the presented token
+      description: |
+        Revokes only the presented token. Other tokens for the same user
+        stay valid. A second call with the now-revoked token is 401.
+      responses:
+        "204":
+          description: Token revoked. Empty body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/auth/password:
+    post:
+      tags: [Auth]
+      operationId: requestPasswordReset
+      summary: Request a password reset
+      description: |
+        Always returns 202 `{}` for a known email, an unknown email, and
+        when sending the mail raises. Never includes the reset token in
+        the JSON. The emailed link points at the Core-hosted HTML form
+        (`GET /auth/password/edit`), which is not a bearer REST endpoint.
+
+        Unknown body keys are ignored.
+
+        Rate limit: 5 requests per hour per IP. Exceeding it returns 429
+        `too_many_requests`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRequest"
+            example:
+              email: ada@example.com
+      responses:
+        "202":
+          description: Accepted. Empty JSON object, identical for known and unknown email.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+              example: {}
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+    put:
+      tags: [Auth]
+      operationId: completePasswordReset
+      summary: Complete a password reset
+      description: |
+        Completes a reset with the emailed token. On success, existing API
+        tokens are revoked and neither a session nor a new bearer token is
+        issued. Invalid or expired tokens leave existing tokens working and
+        return 422. Unknown body keys are ignored.
+
+        `password_confirmation` is not required. If supplied it must match
+        `password`; if omitted there is no confirmation check and a valid
+        token plus `password` still changes the password.
+
+        This is a different operation from `POST` on the same path.
+        Not rate-limited.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordComplete"
+            example:
+              reset_password_token: example-reset-token
+              password: new-password-1
+              password_confirmation: new-password-1
+      responses:
+        "200":
+          description: Password updated. Empty JSON object. No token.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+              example: {}
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/integrations:
+    get:
+      tags: [Integrations]
+      operationId: listIntegrations
+      summary: Integration status
+      description: |
+        Allowlisted connection flags only. Missing rows do not create
+        provider records. Tokens and account ids are never returned.
+      responses:
+        "200":
+          description: Connection flags for the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationsStatus"
+              example:
+                google:
+                  connected: false
+                  reconnect_required: false
+                telegram:
+                  connected: false
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/integrations/telegram/connect:
+    post:
+      tags: [Integrations]
+      operationId: connectTelegram
+      summary: Start Telegram connect
+      description: |
+        Returns a `t.me` deep link with a one-time start token. 503 when
+        the bot username is not configured.
+      responses:
+        "200":
+          description: Deep link for the caller to open in Telegram.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectUrl"
+              example:
+                url: https://t.me/example_bot?start=example-start-token
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/IntegrationUnavailable"
+
+  /api/v1/integrations/telegram:
+    delete:
+      tags: [Integrations]
+      operationId: disconnectTelegram
+      summary: Disconnect Telegram
+      description: Destroys the caller's Telegram account. Idempotent 204 if already disconnected.
+      responses:
+        "204":
+          description: Disconnected. Empty body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/integrations/google/connect:
+    post:
+      tags: [Integrations]
+      operationId: connectGoogle
+      summary: Start Google connect
+      description: |
+        Browser-originated initiation. Requires a bearer token, and requires
+        the browser to handle cookies. This call issues the connection token
+        and *writes* the connect intent into the session — storing it through
+        the existing Rails session mechanism rather than a second bespoke
+        cookie — so it **sets** the session cookie on its own response. A
+        fresh browser with no prior session can initiate; what it must do is
+        return that cookie on the transport request and the callback. The
+        returned URL only validates the already-established binding and never
+        establishes it. The launch URL is reusable until the token is claimed
+        or expires (15 minutes). The token claim is the single-use event, not
+        the first open.
+
+        The browser must send `Authorization: Bearer <token>` and
+        `credentials: include` so the session cookie is stored and returned.
+        `APP_URL` (pinned OmniAuth callback) and the cookie host
+        must be the same host. Allowed origins are the request's own origin,
+        a missing `Origin`, or an exact HTTPS origin listed in
+        `GOOGLE_CONNECT_ORIGINS`. Any other origin is 403
+        `origin_not_allowed` and no CORS headers are echoed.
+
+        There is no backend-forwarded-link flow. A forwarded URL must never
+        establish intent.
+
+        503 when Google OAuth is unconfigured.
+      responses:
+        "200":
+          description: Launch URL on this host (`/auth/google_oauth2/connect?token=...`).
+          headers:
+            Access-Control-Allow-Origin:
+              schema: { type: string }
+              description: Echoed only for an allowlisted sibling HTTPS origin.
+            Access-Control-Allow-Credentials:
+              schema: { type: string }
+            Access-Control-Allow-Headers:
+              schema: { type: string }
+              description: "`Authorization, Content-Type`"
+            Access-Control-Allow-Methods:
+              schema: { type: string }
+              description: "`POST, OPTIONS`"
+            Vary:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectUrl"
+              example:
+                url: https://core.example.test/auth/google_oauth2/connect?token=example-handoff-token
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/OriginNotAllowed"
+        "503":
+          $ref: "#/components/responses/IntegrationUnavailable"
+    options:
+      tags: [Integrations]
+      operationId: connectGooglePreflight
+      summary: CORS preflight for Google connect
+      description: |
+        Unauthenticated preflight for `POST /api/v1/integrations/google/connect`.
+        Not unconditional: a disallowed origin is 403 `origin_not_allowed`.
+        Issues and consumes nothing. Trusted sibling HTTPS origins receive
+        CORS headers (`POST, OPTIONS`, credentials, `Authorization` and
+        `Content-Type`).
+      security: []
+      responses:
+        "204":
+          description: Preflight allowed. Empty body.
+          headers:
+            Access-Control-Allow-Origin:
+              schema: { type: string }
+            Access-Control-Allow-Credentials:
+              schema: { type: string }
+            Access-Control-Allow-Headers:
+              schema: { type: string }
+            Access-Control-Allow-Methods:
+              schema: { type: string }
+            Vary:
+              schema: { type: string }
+        "403":
+          $ref: "#/components/responses/OriginNotAllowed"
+
+  /api/v1/integrations/google:
+    delete:
+      tags: [Integrations]
+      operationId: disconnectGoogle
+      summary: Disconnect Google
+      description: |
+        Revokes locally and best-effort remotes. Idempotent 204 if already
+        disconnected.
+      responses:
+        "204":
+          description: Disconnected. Empty body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/reminders:
+    get:
+      tags: [Reminders]
+      operationId: listReminders
+      summary: List reminders
+      description: |
+        The caller's reminders in `scheduled_at`, `id` order. Page size is
+        100. `next_page` is the next integer page, or `null` when this page
+        is not truncated.
+
+        This is a different paging mechanism from calendar events
+        (`next_page_token`). Unknown query parameters are ignored. A
+        non-positive or non-integer `page` (including `?page=abc`) is 422.
+      parameters:
+        - $ref: "#/components/parameters/ReminderPage"
+      responses:
+        "200":
+          description: One page of reminders.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [Reminders]
+      operationId: createReminder
+      summary: Create a reminder
+      description: |
+        Creates a `pending` reminder with `source=api`. Unknown body keys
+        (including a `reminder` wrapper) are 422 `… is unknown`.
+
+        `scheduled_at` accepts an offset-bearing ISO timestamp or a naive
+        `YYYY-MM-DDTHH:MM:SS` interpreted in the caller's time zone.
+
+        Omitted or JSON-`null` source fields store nothing. They still
+        appear in the response as `null`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderCreate"
+            example:
+              title: Revise chapter 3
+              scheduled_at: "2026-08-10T19:00:00+02:00"
+              offset_minutes: 30
+              context_type: study
+              source_app: daily-study
+              source_entity_type: StudyTask
+              source_entity_id: 8e3abc
+      responses:
+        "201":
+          description: Reminder created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/reminders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ReminderId"
+    get:
+      tags: [Reminders]
+      operationId: getReminder
+      summary: Show a reminder
+      description: Local record id. Another user's reminder is 404, not 403.
+      responses:
+        "200":
+          description: The reminder.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Reminders]
+      operationId: patchReminder
+      summary: Update a reminder (merge)
+      description: |
+        Canonical update. Merge semantics: omitted fields are preserved;
+        explicit JSON `null` on a source field clears only that field.
+        Empty body is 422. Unknown body keys are 422. Only `pending`
+        reminders update; any other status is 409 `conflict` with no change.
+
+        Title cannot be cleared. `offset_minutes` may be set to JSON `null`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderPatch"
+      responses:
+        "200":
+          description: Updated reminder.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    put:
+      tags: [Reminders]
+      operationId: putReminder
+      summary: Update a reminder (merge, not replace)
+      description: |
+        Same action as PATCH. **Does not replace the resource.** Omitted
+        fields are preserved. A client that sends a partial body expecting
+        unspecified fields to reset will silently get a merge.
+
+        Request schema, success status, and errors are identical to PATCH.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderPatch"
+      responses:
+        "200":
+          description: Updated reminder (merged, not replaced).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [Reminders]
+      operationId: deleteReminder
+      summary: Cancel a reminder
+      description: |
+        Cancels a `pending` reminder (row is kept). Already-cancelled is
+        idempotent 204. `processing`, `delivered`, and `failed` are 409
+        `conflict`. Another user's reminder is 404.
+      responses:
+        "204":
+          description: Cancelled, or already cancelled. Empty body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/ai/messages:
+    post:
+      tags: [AI]
+      operationId: createAiMessage
+      summary: One-shot AI message
+      description: |
+        Stateless. No conversation, tools, history, or client model
+        selection. `model` in the request body is 422 (`model is unknown`).
+        The response `model` reports what Core requested.
+
+        Unknown body keys are 422. Source fields that are omitted or JSON
+        `null` are omitted from the response — they are not echoed as
+        `null` (unlike reminders and calendar events).
+
+        `message` is at most 10 000 characters. No full prompt or answer is
+        retained in `input_data` / `output_data` (both stay at the schema
+        default `{}`); a bounded 120-character preview of the message is
+        stored on the `ActionExecution` row. `message` is filtered from
+        Rails request logs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiMessageRequest"
+            example:
+              message: Help me plan
+              context_type: study
+              source_app: daily-study
+      responses:
+        "200":
+          description: Provider answer. Source keys only when supplied and non-null.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiMessageResponse"
+              example:
+                id: 12
+                message: Sure — here is a three-step plan
+                model: google/gemma-4-26b-a4b-it:free
+                context_type: study
+                source_app: daily-study
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "502":
+          $ref: "#/components/responses/ProviderError"
+        "503":
+          $ref: "#/components/responses/IntegrationUnavailable"
+
+  /api/v1/calendar/events:
+    get:
+      tags: [Calendar]
+      operationId: listCalendarEvents
+      summary: List calendar events
+      description: |
+        Lists events on the caller's default Google calendar (or `primary`).
+
+        `from` and `to` are both required. Each must be an offset-bearing
+        ISO timestamp (`Z` or `±HH:MM`). A naive timestamp is 422. `from <
+        to` is enforced (otherwise `from` is invalid). This is a different
+        rule from request-body timestamps, which may be naive and use the
+        caller's time zone.
+
+        Core requests `max_results: 100`. Google may return fewer. Paging
+        uses opaque `page_token` / `next_page_token` — not integer
+        `page` / `next_page`. Repeat the same `from`/`to` with the token.
+        A stale or invalid token that Google identifies as a page token
+        error is 422, not 502. Other provider 400s are 502 `provider_error`.
+        Provider 404 on this list is 502 `provider_error`, not `not_found`.
+      parameters:
+        - $ref: "#/components/parameters/CalendarFrom"
+        - $ref: "#/components/parameters/CalendarTo"
+        - $ref: "#/components/parameters/CalendarPageToken"
+      responses:
+        "200":
+          description: One page of events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEventList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IntegrationNotConnected"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "502":
+          $ref: "#/components/responses/ProviderError"
+    post:
+      tags: [Calendar]
+      operationId: createCalendarEvent
+      summary: Create a calendar event
+      description: |
+        Creates the event at Google and syncs a local row. Unknown body
+        keys (including `calendar_id` and `user_id`) are 422.
+
+        Timed events: ISO timestamps; an offset-free timestamp uses the
+        caller's time zone; `ends_at` must be after `starts_at`. All-day
+        events: date-only `YYYY-MM-DD`; inclusive; `ends_at >= starts_at`.
+        `all_day` defaults to `false`.
+
+        Omitted or JSON-`null` source fields store nothing and appear in
+        the response as `null`.
+
+        Provider 403/404 on create are 502 `provider_error`, not `not_found`.
+        If Google writes succeed and the local row cannot be saved, 502
+        `local_save_failed` includes `details.provider_event_id`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarEventCreate"
+            example:
+              title: Dinner with Anna
+              description: Book a table
+              location: Trattoria
+              starts_at: "2026-08-10T19:00:00+02:00"
+              ends_at: "2026-08-10T20:00:00+02:00"
+              all_day: false
+              context_type: work
+              source_app: daily-work
+      responses:
+        "201":
+          description: Event created. `id` is the Google event id.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/IntegrationNotConnected"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "502":
+          description: Provider failure, or Google succeeded and local save failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /api/v1/calendar/events/{id}:
+    parameters:
+      - $ref: "#/components/parameters/CalendarEventId"
+    patch:
+      tags: [Calendar]
+      operationId: patchCalendarEvent
+      summary: Patch a calendar event
+      description: |
+        Sparse merge. Omitted event fields are not sent to Google.
+        Explicit JSON `null` on `description` or `location` clears that
+        field. Title cannot be cleared.
+
+        A timing change must supply `starts_at`, `ends_at`, and `all_day`
+        together. Body timestamp rules match create (naive allowed; all-day
+        is date-only and inclusive).
+
+        Source fields: omitted preserved; JSON `null` clears that field
+        only. Metadata-only patches fetch the Google event and annotate
+        locally with zero Google mutations. If that local save fails, the
+        code is 500 `internal_error`, not `local_save_failed`.
+
+        Empty body is 422. Unknown body keys are 422. Provider 404 on the
+        event id is 404 `not_found`. Provider 403 is 502 `provider_error`.
+        Event-field patches that succeed at Google and fail locally are
+        502 `local_save_failed`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalendarEventPatch"
+      responses:
+        "200":
+          description: Updated event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalendarEvent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IntegrationNotConnected"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+        "502":
+          description: Provider failure, or Google succeeded and local save failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      tags: [Calendar]
+      operationId: deleteCalendarEvent
+      summary: Delete a calendar event
+      description: |
+        Deletes at Google and cancels the matching local row for the
+        current calendar. 204 even when no local row matches. Provider 404
+        is 404 `not_found`. Provider 403 is 502 `provider_error` and does
+        not cancel the local row. If Google deletes and the local cancel
+        cannot be saved, 502 `local_save_failed`.
+      responses:
+        "204":
+          description: Deleted at Google. Empty body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/IntegrationNotConnected"
+        "502":
+          description: Provider failure, or Google succeeded and local cancel failed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Token from `POST /api/v1/auth/login`. 401 when the header is
+        absent or malformed, the token is unknown, expired, or revoked, or
+        the user is not `active`. A Devise session cookie is not accepted.
+
+  parameters:
+    ReminderId:
+      name: id
+      in: path
+      required: true
+      description: Local reminder record id. Not a Google event id.
+      schema:
+        type: integer
+    ReminderPage:
+      name: page
+      in: query
+      required: false
+      description: |
+        1-based page. Defaults to 1 when omitted. Must be a positive
+        integer (JSON integer, or a string matching `[1-9][0-9]*` —
+        `"01"` and `"0"` are 422). Other query parameters are ignored.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    CalendarEventId:
+      name: id
+      in: path
+      required: true
+      description: |
+        Opaque Google event id. Must not be assumed numeric or
+        client-generated.
+      schema:
+        type: string
+    CalendarFrom:
+      name: from
+      in: query
+      required: true
+      description: |
+        Range start. Offset or `Z` is mandatory. Naive timestamps are
+        rejected. Must be strictly before `to`. Blank is `can't be blank`.
+      schema:
+        type: string
+        example: "2026-08-10T00:00:00+02:00"
+    CalendarTo:
+      name: to
+      in: query
+      required: true
+      description: Range end. Same format rule as `from`. Both `from` and `to` are required.
+      schema:
+        type: string
+        example: "2026-08-11T00:00:00+02:00"
+    CalendarPageToken:
+      name: page_token
+      in: query
+      required: false
+      description: Opaque token from a previous `next_page_token`. Repeat the same `from`/`to`.
+      schema:
+        type: string
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message, details]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum:
+                - validation_error
+                - unauthorized
+                - not_found
+                - conflict
+                - integration_not_connected
+                - provider_error
+                - local_save_failed
+                - integration_unavailable
+                - internal_error
+                - too_many_requests
+                - origin_not_allowed
+            message:
+              type: string
+            details:
+              type: object
+              description: |
+                Validation errors use field → list of strings. Other codes
+                usually send `{}`. `local_save_failed` sets
+                `provider_event_id` to a string (not a list).
+              additionalProperties: true
+
+    User:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - email
+        - first_name
+        - last_name
+        - time_zone
+        - locale
+        - role
+        - status
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        time_zone:
+          type: string
+          nullable: true
+        locale:
+          type: string
+        role:
+          type: string
+          enum: [member, moderator, admin]
+        status:
+          type: string
+          enum: [active, suspended, blocked, pending]
+
+    SignupRequest:
+      type: object
+      required: [email, password, first_name, last_name]
+      additionalProperties: true
+      description: |
+        Unknown keys, including `role`, `status`, and `id`, are silently
+        dropped. `locale` defaults to `en` when omitted. Password length
+        6–128. First and last name minimum 2 characters. Email is
+        case-insensitive and whitespace-stripped. `password_confirmation`
+        is optional: if supplied it must match `password`; if omitted
+        there is no confirmation check.
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+        password_confirmation:
+          type: string
+          description: If supplied it must match `password`. If omitted there is no confirmation check.
+        first_name:
+          type: string
+          minLength: 2
+        last_name:
+          type: string
+          minLength: 2
+        time_zone:
+          type: string
+          nullable: true
+        locale:
+          type: string
+          default: en
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      additionalProperties: true
+      description: Unknown keys are ignored. Blank email or password is 422.
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      additionalProperties: false
+      required: [token, token_type, expires_at]
+      properties:
+        token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_at:
+          type: string
+          format: date-time
+          description: ISO-8601 from the persisted row (30 days from issuance).
+
+    PasswordRequest:
+      type: object
+      required: [email]
+      additionalProperties: true
+      description: Unknown keys are ignored. Blank email is 422.
+      properties:
+        email:
+          type: string
+
+    PasswordComplete:
+      type: object
+      required: [reset_password_token, password]
+      additionalProperties: true
+      description: |
+        Unknown keys are ignored. Reset tokens expire after 6 hours.
+        `password_confirmation` is optional: if supplied it must match
+        `password`; if omitted there is no confirmation check.
+      properties:
+        reset_password_token:
+          type: string
+        password:
+          type: string
+          minLength: 6
+          maxLength: 128
+        password_confirmation:
+          type: string
+          description: If supplied it must match `password`. If omitted there is no confirmation check.
+
+    IntegrationsStatus:
+      type: object
+      additionalProperties: false
+      required: [google, telegram]
+      properties:
+        google:
+          type: object
+          additionalProperties: false
+          required: [connected, reconnect_required]
+          properties:
+            connected:
+              type: boolean
+            reconnect_required:
+              type: boolean
+              description: True when a Google row exists in revoked, expired, or error status. False when there is no row.
+        telegram:
+          type: object
+          additionalProperties: false
+          required: [connected]
+          properties:
+            connected:
+              type: boolean
+
+    ConnectUrl:
+      type: object
+      additionalProperties: false
+      required: [url]
+      properties:
+        url:
+          type: string
+          format: uri
+
+    Reminder:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - scheduled_at
+        - offset_minutes
+        - time_zone
+        - status
+        - source
+        - context_type
+        - source_app
+        - source_entity_type
+        - source_entity_id
+      properties:
+        id:
+          type: integer
+          description: Local record id.
+        title:
+          type: string
+        scheduled_at:
+          type: string
+          format: date-time
+        offset_minutes:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 43200
+        time_zone:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, processing, delivered, cancelled, failed]
+        source:
+          type: string
+          enum: [web, telegram, calendar_sync, system, api]
+        context_type:
+          type: string
+          nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Always present on this resource.
+        source_app:
+          type: string
+          nullable: true
+        source_entity_type:
+          type: string
+          nullable: true
+        source_entity_id:
+          type: string
+          nullable: true
+
+    ReminderList:
+      type: object
+      additionalProperties: false
+      required: [items, next_page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reminder"
+        next_page:
+          type: integer
+          nullable: true
+          description: Next 1-based page, or `null` if this page is complete. Not `next_page_token`.
+
+    ReminderCreate:
+      type: object
+      additionalProperties: false
+      required: [title, scheduled_at]
+      description: Unknown keys are 422. Source fields omitted or JSON `null` store nothing.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
+        scheduled_at:
+          type: string
+          description: |
+            Offset-bearing ISO timestamp, or naive `YYYY-MM-DDTHH:MM:SS`
+            interpreted in the caller's time zone.
+        offset_minutes:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 43200
+          description: Optional. Integer 0 through 43200 (30 days). Not clamped; out of range is 422.
+        context_type:
+          type: string
+          nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
+        source_app:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_type:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_id:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+
+    ReminderPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Merge document. Empty object is 422. Unknown keys are 422.
+        Omitted fields are preserved. JSON `null` on a source field
+        clears only that field.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
+        scheduled_at:
+          type: string
+        offset_minutes:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 43200
+        context_type:
+          type: string
+          nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
+        source_app:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_type:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_id:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+
+    CalendarEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - title
+        - description
+        - location
+        - starts_at
+        - ends_at
+        - all_day
+        - time_zone
+        - context_type
+        - source_app
+        - source_entity_type
+        - source_entity_id
+      properties:
+        id:
+          type: string
+          description: Opaque Google event id.
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        starts_at:
+          type: string
+          description: Date-only `YYYY-MM-DD` when `all_day` is true; ISO timestamp otherwise.
+        ends_at:
+          type: string
+          description: Inclusive date when `all_day` is true (not Google's exclusive end).
+        all_day:
+          type: boolean
+        time_zone:
+          type: string
+          description: Caller's time zone.
+        context_type:
+          type: string
+          nullable: true
+          enum: [life, study, work, global, null]
+        source_app:
+          type: string
+          nullable: true
+        source_entity_type:
+          type: string
+          nullable: true
+        source_entity_id:
+          type: string
+          nullable: true
+    CalendarEventList:
+      type: object
+      additionalProperties: false
+      required: [items, next_page_token]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalendarEvent"
+        next_page_token:
+          type: string
+          nullable: true
+          description: Opaque Google token, or `null`. Not integer `next_page`.
+
+    CalendarEventCreate:
+      type: object
+      additionalProperties: false
+      required: [title, starts_at, ends_at]
+      description: Unknown keys are 422. `all_day` defaults to false.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        starts_at:
+          type: string
+        ends_at:
+          type: string
+        all_day:
+          type: boolean
+          default: false
+        context_type:
+          type: string
+          nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
+        source_app:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_type:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_id:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+
+    CalendarEventPatch:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: |
+        Sparse merge. Empty object is 422. Unknown keys are 422. Timing
+        fields must be supplied all together when any of them is present.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming; a value that trims to empty is 422.
+        description:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        starts_at:
+          type: string
+        ends_at:
+          type: string
+        all_day:
+          type: boolean
+        context_type:
+          type: string
+          nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
+        source_app:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_type:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_id:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+
+    AiMessageRequest:
+      type: object
+      additionalProperties: false
+      required: [message]
+      description: |
+        Unknown keys (including `model`, `conversation_id`, `tools`,
+        `user_id`) are 422. JSON `null` source fields are accepted and
+        omitted from the response.
+      properties:
+        message:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          maxLength: 10000
+          description: Must be non-blank after server trimming; a value that trims to empty is 422 `can't be blank`. Over 10000 characters is 422 `is too long`.
+        context_type:
+          type: string
+          nullable: true
+          enum: [life, study, work, global, null]
+          description: One of `life`, `study`, `work`, `global`, or `null`. Whitespace-only, or any other value, is 422.
+        source_app:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_type:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+        source_entity_id:
+          type: string
+          nullable: true
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: Must be non-blank after server trimming when present; `null` is accepted. A value that trims to empty is 422.
+
+    AiMessageResponse:
+      type: object
+      additionalProperties: false
+      required: [id, message, model]
+      description: |
+        Source keys appear only when the request supplied a non-null
+        value. They are not present as `null`.
+      properties:
+        id:
+          type: integer
+          description: ActionExecution id.
+        message:
+          type: string
+          description: Provider answer, not the prompt.
+        model:
+          type: string
+          description: Server-configured model Core requested. Not client-selectable.
+        context_type:
+          type: string
+          enum: [life, study, work, global]
+          description: One of `life`, `study`, `work`, `global`. Present only when the request supplied it.
+        source_app:
+          type: string
+        source_entity_type:
+          type: string
+        source_entity_id:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: |
+        Absent, malformed, unknown, expired, or revoked bearer, or a user
+        who is not `active`.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: unauthorized
+              message: Unauthorized
+              details: {}
+    ValidationError:
+      description: Request is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: validation_error
+              message: Request is invalid
+              details:
+                title:
+                  - can't be blank
+    NotFound:
+      description: Resource does not exist for this caller.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: not_found
+              message: Not found
+              details: {}
+    Conflict:
+      description: The resource is not in a state that allows this change.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: conflict
+              message: Conflict
+              details: {}
+    IntegrationNotConnected:
+      description: Google is not connected for this caller (HTTP 409).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: integration_not_connected
+              message: Google is not connected
+              details: {}
+    ProviderError:
+      description: Upstream provider request failed. Provider text is not echoed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: provider_error
+              message: Provider request failed
+              details: {}
+    IntegrationUnavailable:
+      description: The integration is not configured on this host.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: integration_unavailable
+              message: Integration is unavailable
+              details: {}
+    InternalError:
+      description: Request failed.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: internal_error
+              message: Request failed
+              details: {}
+    TooManyRequests:
+      description: IP throttle on a public credential endpoint.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: too_many_requests
+              message: Too many requests
+              details: {}
+    OriginNotAllowed:
+      description: Origin is not the request host and is not an allowlisted HTTPS sibling.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: origin_not_allowed
+              message: Origin is not allowed
+              details: {}

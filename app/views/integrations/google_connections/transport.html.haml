@@ -1,0 +1,9 @@
+!!!
+%html{lang: "en"}
+  %head
+    %meta{charset: "utf-8"}
+    %title Google
+  %body
+    %p Continue to Google
+    = form_with url: google_oauth_request_path(token: @token), method: :post, data: { turbo: false } do
+      = submit_tag "Continue"

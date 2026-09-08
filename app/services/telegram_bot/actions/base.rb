@@ -5,10 +5,6 @@ module TelegramBot
         new(bot: bot, update: update, pending: pending).call
       end
 
-      def self.call_callback(bot:, update:)
-        new(bot: bot, update: update).call_callback
-      end
-
       def initialize(bot:, update:, pending: nil)
         @bot = bot
         @update = update
@@ -17,10 +13,6 @@ module TelegramBot
 
       def call
         raise NotImplementedError, "#{self.class.name} must implement #call"
-      end
-
-      def call_callback
-        call
       end
 
       private
@@ -82,7 +74,13 @@ module TelegramBot
       end
 
       def handle_event_error!(error, i18n_scope:, action_type:, display_text: nil, started_at: nil)
-        record_action!(action_type: action_type, status: :failed, display_text: display_text, error_message: error.message, started_at: started_at)
+        record_action!(
+          action_type: action_type,
+          status: :failed,
+          display_text: display_text,
+          error_message: action_error_message(error),
+          started_at: started_at
+        )
 
         case error
         when Integrations::OpenRouter::Client::NotConfigured
@@ -93,12 +91,20 @@ module TelegramBot
           send_message(t("#{i18n_scope}.not_understood"))
         when Integrations::Google::Client::ScopeMissing
           send_message(t("#{i18n_scope}.calendar_missing"))
+        when Integrations::Google::LocalCalendarEvent::PersistenceError
+          send_message(t("#{i18n_scope}.local_save_failed"))
         when ::Google::Apis::Error, ::Signet::AuthorizationError
           Rails.logger.warn("[telegram_bot] #{action_type} failed: #{error.class}: #{error.message}")
           send_message(t("#{i18n_scope}.failed"))
         else
           raise error
         end
+      end
+
+      def action_error_message(error)
+        return error.message unless error.is_a?(Integrations::Google::LocalCalendarEvent::PersistenceError)
+
+        "#{error.message} provider_event_id=#{error.provider_event_id}"
       end
 
       def t(key, **options)

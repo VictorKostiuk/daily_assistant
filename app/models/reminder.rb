@@ -1,4 +1,6 @@
 class Reminder < ApplicationRecord
+  MAX_OFFSET_MINUTES = 30.days.in_minutes.to_i
+
   belongs_to :user
   belongs_to :remindable, polymorphic: true, optional: true
   belongs_to :user_integration, optional: true
@@ -20,6 +22,7 @@ class Reminder < ApplicationRecord
     web: 0,
     telegram: 1,
     calendar_sync: 2,
-    system: 3
+    system: 3,
+    api: 4
   }
 end

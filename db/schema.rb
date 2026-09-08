@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_07_31_122901) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_06_140000) do
   create_table "action_executions", force: :cascade do |t|
     t.string "action_type", null: false
     t.datetime "completed_at"
@@ -51,6 +51,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_122901) do
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.index ["author_id"], name: "index_announcements_on_author_id"
+  end
+
+  create_table "api_tokens", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "last_used_at"
+    t.datetime "revoked_at"
+    t.string "token_digest", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["token_digest"], name: "index_api_tokens_on_token_digest", unique: true
+    t.index ["user_id"], name: "index_api_tokens_on_user_id"
   end
 
   create_table "audit_logs", force: :cascade do |t|
@@ -94,7 +106,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_122901) do
     t.integer "user_id", null: false
     t.integer "user_integration_id"
     t.index ["action_execution_id"], name: "index_calendar_events_on_action_execution_id"
-    t.index ["user_id", "provider", "external_event_id"], name: "index_calendar_events_on_user_provider_external_id", unique: true
+    t.index ["user_id", "provider", "external_calendar_id", "external_event_id"], name: "index_calendar_events_on_user_provider_calendar_external_id", unique: true
     t.index ["user_id", "starts_at"], name: "index_calendar_events_on_user_id_and_starts_at"
     t.index ["user_id"], name: "index_calendar_events_on_user_id"
     t.index ["user_integration_id"], name: "index_calendar_events_on_user_integration_id"
@@ -254,7 +266,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_122901) do
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.boolean "web_enabled", default: true, null: false
-    t.index ["user_id"], name: "index_reminder_preferences_on_user_id"
+    t.index ["user_id"], name: "index_reminder_preferences_on_user_id", unique: true
   end
 
   create_table "reminders", force: :cascade do |t|
@@ -570,6 +582,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_31_122901) do
   add_foreign_key "action_executions", "user_integrations"
   add_foreign_key "action_executions", "users"
   add_foreign_key "announcements", "users", column: "author_id"
+  add_foreign_key "api_tokens", "users"
   add_foreign_key "audit_logs", "users", column: "actor_id"
   add_foreign_key "audit_logs", "users", column: "target_user_id"
   add_foreign_key "calendar_events", "action_executions"
