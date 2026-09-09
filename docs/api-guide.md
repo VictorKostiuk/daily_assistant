@@ -68,7 +68,7 @@ Unknown **body** keys are not one rule:
 
 | Operations | Unknown body key |
 | --- | --- |
-| Reminders, calendar events, AI messages | 422 `validation_error` (`<key> is unknown`) |
+| Reminders, calendar events, AI messages, StudyWell settings/courses/obligations | 422 `validation_error` (`<key> is unknown`) |
 | `signup` | Silently dropped (`params.permit`) |
 | `login`, `POST`/`PUT /api/v1/auth/password` | Ignored (read listed keys only) |
 
@@ -85,7 +85,7 @@ Eleven codes. Do not invent others.
 | `validation_error` | 422 | Invalid or unknown input |
 | `unauthorized` | 401 | Missing/bad bearer, or user not `active` |
 | `not_found` | 404 | No such resource for this caller |
-| `conflict` | 409 | Reminder not in a changeable status |
+| `conflict` | 409 | Reminder not in a changeable status; stale StudyWell `lock_version`; deleting a course that still has obligations |
 | `integration_not_connected` | 409 | Google is not connected |
 | `provider_error` | 502 | Upstream Google or OpenRouter failure |
 | `local_save_failed` | 502 | Provider write succeeded; local row did not |
@@ -104,22 +104,26 @@ Eleven codes. Do not invent others.
 
 ## Pagination
 
-Two endpoints paginate, by different mechanisms. Do not conflate the keys. A client that treats a first page as the full set will lose rows.
+Four endpoints paginate. Do not conflate the keys. A client that treats a first page as the full set will lose rows.
 
 | Endpoint | Query | Page size | Response key |
 | --- | --- | --- | --- |
 | `GET /api/v1/reminders` | `page` (positive integer, default 1) | 100 | `next_page` — integer or `null` |
+| `GET /api/v1/studywell/courses` | `page` (positive integer, default 1) | 100 | `next_page` — integer or `null` |
+| `GET /api/v1/studywell/courses/{course_id}/obligations` | `page` (positive integer, default 1) | 100 | `next_page` — integer or `null` |
 | `GET /api/v1/calendar/events` | `page_token` (opaque) | Core requests `max_results: 100`; Google may return fewer | `next_page_token` |
 
 A non-positive or non-integer `page` (including `?page=0` and `?page=abc`) is 422. A stale `page_token` that Google identifies as such is 422, not 502.
 
 ## Resource ids
 
-Reminder ids are local integer record ids. Calendar event ids are opaque Google event ids — not numeric, not client-generated.
+Reminder, course, and obligation ids are local integer record ids. Calendar event ids are opaque Google event ids — not numeric, not client-generated.
 
 ## Timestamps
 
 **Request body** (create/patch reminders and calendar events): date-only `YYYY-MM-DD` for all-day calendar events; ISO timestamps for timed values. An offset-free timestamp uses the caller's time zone. Timed calendar events require `end > start`. All-day events are inclusive and require `end >= start`. A calendar timing PATCH must send `starts_at`, `ends_at`, and `all_day` together.
+
+**StudyWell obligation timestamps** (`due_at`, `starts_at`, `ends_at`) are a different rule: an explicit offset or `Z` is mandatory; a naive timestamp is 422. Course `active_from` / `active_until` are date-only `YYYY-MM-DD`.
 
 **`from` / `to` query bounds** on `GET /api/v1/calendar/events` are a different rule: an explicit offset or `Z` is mandatory; a naive timestamp is 422. Both are required (blank → `can't be blank`). `from < to` is enforced.
 
@@ -154,3 +158,27 @@ These are not `/api/v1` operations and must not be called as JSON bearer endpoin
 Login issues a bearer token valid 30 days. Logout revokes only the presented token. Completing a password reset revokes outstanding API tokens and issues neither a session nor a new bearer.
 
 On `POST /api/v1/auth/signup` and `PUT /api/v1/auth/password`, `password_confirmation` is not required. If it is supplied it must match `password`; if it is omitted there is no confirmation check.
+
+A present, non-blank `time_zone` on signup must resolve via `ActiveSupport::TimeZone[]`. The judged value is the merged request parameter (query string overrides body), matching what is persisted. Invalid present values are 422 `details.time_zone`. A non-string value is 422, not treated as absent. Absent or blank is accepted and stored as submitted (blank is not normalised to null).
+
+## StudyWell academic resources
+
+All of these require a bearer token. Another user's id is 404, not 403. Collections use `{items, next_page}`, 100 records per page, positive integer `page` defaulting to 1, ascending id order. `next_page` is `null` only when the page is not truncated.
+
+| Operation | Notes |
+| --- | --- |
+| `GET`/`PATCH /api/v1/studywell/settings` | `{time_zone, needs_time_zone_setup}`. Missing or unresolvable stored zone is reported as needing setup; UTC is not persisted on read. PATCH accepts only a valid named `time_zone`. |
+| `GET`/`POST /api/v1/studywell/courses` | List owned courses / create. Default list excludes archived courses unless `include_archived=true` (exactly the strings `true` or `false`). |
+| `GET`/`PATCH`/`DELETE /api/v1/studywell/courses/{id}` | PATCH includes boolean `archived`. DELETE is 409 with `details.obligations_count` while obligations exist; no cascade. |
+| `GET`/`POST /api/v1/studywell/courses/{course_id}/obligations` | List/create within an owned course. `status=open\|done\|all`, default `all`. Creating inside an archived course is allowed. |
+| `GET`/`PATCH`/`DELETE /api/v1/studywell/obligations/{id}` | PATCH cannot change `kind`. DELETE is explicit deletion, not completion. |
+
+Course `name` and obligation `title` are rejected unless they contain at least one character outside `String#strip` (NUL and ASCII whitespace) **and** at least one character outside Unicode whitespace (`blank?`). The OpenAPI `pattern` encodes only the first conjunct; solely NBSP or ideographic space is still 422. Mixed NUL+NBSP is accepted.
+
+Course and obligation PATCH and DELETE require integer `lock_version` in the JSON body, including `0` after create. Stale versions are 409 with no partial mutation. Omitted fields are preserved; explicit JSON `null` clears a nullable field. Wrong types and unknown body keys are 422 before filtering.
+
+`remaining_minutes` is the rounded-up uncompleted fraction of `estimated_minutes`, only when both estimate and progress are known; otherwise `null`. Progress 100 does not complete work; `done` does not require progress 100. `archived_at` and `completed_at` are server-owned.
+
+Obligation timestamps require an explicit offset or `Z`. Assignments take optional `due_at` and reject an interval. Exams reject `due_at` and take `starts_at`/`ends_at` both-absent-or-both-present. Study tasks may have both; a planned end must not be after `due_at`.
+
+There is no `PUT` on StudyWell course or obligation routes.

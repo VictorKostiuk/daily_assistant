@@ -88,6 +88,87 @@ RSpec.describe "API v1 auth", type: :request do
       expect(created.valid_password?(password)).to be(true)
     end
 
+    it "rejects a present non-blank invalid time_zone without creating a user" do
+      expect {
+        post "/api/v1/auth/signup", params: valid_params.merge(time_zone: "Not/AZone"), as: :json
+      }.not_to change(User, :count)
+
+      expect_validation_error(details: { "time_zone" => [ "is invalid" ] })
+    end
+
+    it "rejects a non-string time_zone without creating a user" do
+      expect {
+        post "/api/v1/auth/signup", params: valid_params.merge(time_zone: 1), as: :json
+      }.not_to change(User, :count)
+
+      expect_validation_error(details: { "time_zone" => [ "is invalid" ] })
+    end
+
+    it "validates the merged time_zone that signup actually persists, with query overriding body" do
+      expect {
+        post "/api/v1/auth/signup?time_zone=#{CGI.escape("Not/AZone")}",
+             params: valid_params.merge(email: "query-only-invalid@example.com").except(:time_zone),
+             as: :json
+      }.not_to change(User, :count)
+      expect_validation_error(details: { "time_zone" => [ "is invalid" ] })
+      expect(User.find_by(email: "query-only-invalid@example.com")).to be_nil
+
+      expect {
+        post "/api/v1/auth/signup?time_zone=#{CGI.escape("Not/AZone")}",
+             params: valid_params.merge(email: "query-invalid-body-valid@example.com", time_zone: "Europe/Rome"),
+             as: :json
+      }.not_to change(User, :count)
+      expect_validation_error(details: { "time_zone" => [ "is invalid" ] })
+      expect(User.find_by(email: "query-invalid-body-valid@example.com")).to be_nil
+
+      expect {
+        post "/api/v1/auth/signup?time_zone=#{CGI.escape("Europe/Paris")}",
+             params: valid_params.merge(email: "query-valid-body-invalid@example.com", time_zone: "Not/AZone"),
+             as: :json
+      }.to change(User, :count).by(1)
+      expect(response).to have_http_status(:created)
+      created = User.find_by!(email: "query-valid-body-invalid@example.com")
+      expect(created.time_zone).to eq("Europe/Paris")
+    end
+
+    it "still rejects a wrong-type body time_zone and still drops unknown keys" do
+      expect {
+        post "/api/v1/auth/signup",
+             params: valid_params.merge(email: "hash-zone@example.com", time_zone: { "name" => "Europe/Rome" }),
+             as: :json
+      }.not_to change(User, :count)
+      expect_validation_error(details: { "time_zone" => [ "is invalid" ] })
+      expect(User.find_by(email: "hash-zone@example.com")).to be_nil
+
+      existing = create(:user)
+      post "/api/v1/auth/signup", params: valid_params.merge(
+        email: "extras-still-dropped@example.com",
+        id: existing.id,
+        role: "admin",
+        status: "suspended"
+      ), as: :json
+      created = User.find_by!(email: "extras-still-dropped@example.com")
+      expect(response).to have_http_status(:created)
+      expect(created.id).not_to eq(existing.id)
+      expect(created.role).to eq("member")
+      expect(created.status).to eq("active")
+    end
+
+    it "accepts an absent or blank time_zone and stores it without normalising blank to nil" do
+      post "/api/v1/auth/signup", params: valid_params.except(:time_zone), as: :json
+      expect(response).to have_http_status(:created)
+      expect(User.find_by!(email: "grace@example.com").time_zone).to be_nil
+
+      post "/api/v1/auth/signup", params: valid_params.merge(
+        email: "blank-zone@example.com",
+        time_zone: ""
+      ), as: :json
+      expect(response).to have_http_status(:created)
+      created = User.find_by!(email: "blank-zone@example.com")
+      expect(created.time_zone).to eq("")
+      expect(json["time_zone"]).to eq("")
+    end
+
     it "rejects invalid input with the documented error shape" do
       post "/api/v1/auth/signup", params: {
         email: "not-an-email",

@@ -49,13 +49,15 @@ info:
       `String#strip` removes only NUL and ASCII whitespace (U+0000,
       U+0009-U+000D, U+0020), so a value made solely of those is 422, while
       NBSP, EM SPACE and other Unicode spaces are *not* trimmed and count as
-      content. The `pattern` on these properties is the exact complement of
-      that set.
+      content. The `pattern` on reminder, calendar, and AI properties is
+      the exact complement of that set. StudyWell course `name` and
+      obligation `title` are different: they also pass through model
+      `presence` (`blank?` / Unicode whitespace). See those schemas.
     - Unknown *query* parameters are ignored on every operation.
-    - Unknown *body* keys are not uniform: reminders, calendar events, and
-      AI messages reject them with 422 `validation_error`; `signup`
-      silently drops them; `login` and both password operations ignore
-      them.
+    - Unknown *body* keys are not uniform: reminders, calendar events,
+      AI messages, and StudyWell settings/courses/obligations reject them
+      with 422 `validation_error`; `signup` silently drops them; `login`
+      and both password operations ignore them.
     - `PUT /api/v1/reminders/{id}` does **not** replace the resource. It
       merges, identical to PATCH. A client applying RFC PUT semantics
       will silently get a merge.
@@ -86,6 +88,7 @@ tags:
   - name: Reminders
   - name: Calendar
   - name: AI
+  - name: StudyWell
 security:
   - bearerAuth: []
 paths:
@@ -127,6 +130,18 @@ paths:
         Unknown body keys are silently dropped, not rejected. A wrapper
         such as `{"user":{...}}` therefore yields 422 `email can't be
         blank`, not `user is unknown`.
+
+        A present, non-blank `time_zone` must resolve via
+        `ActiveSupport::TimeZone[]` (IANA identifiers such as
+        `Europe/Rome` and Rails mapping names such as `Rome` are both
+        accepted). The judged value is the merged request parameter:
+        the query string overrides the body, matching what is persisted.
+        An invalid present value is 422 with `details.time_zone`. A
+        non-string value is 422, not treated as absent. Absent or blank
+        `time_zone` is accepted and stored as submitted — blank is not
+        normalised to null. Accounts that later hold an invalid stored
+        zone can still perform unrelated updates; only submitted zone
+        writes are judged.
 
         `password_confirmation` is not required. If supplied it must match
         `password`; if omitted there is no confirmation check.
@@ -841,6 +856,370 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
 
+  /api/v1/studywell/settings:
+    get:
+      tags: [StudyWell]
+      operationId: getStudywellSettings
+      summary: Calendar time zone and setup state
+      description: |
+        Returns the caller's stored `time_zone` and whether setup is
+        needed. A missing or unresolvable stored zone is reported as
+        `needs_time_zone_setup: true`. The stored value is returned as-is;
+        UTC is not persisted on read. Reachable without a valid zone.
+      responses:
+        "200":
+          description: Current zone and setup flag.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellSettings"
+              example:
+                time_zone: Europe/Rome
+                needs_time_zone_setup: false
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      tags: [StudyWell]
+      operationId: patchStudywellSettings
+      summary: Set the calendar time zone
+      description: |
+        Body accepts only `time_zone`, a named zone that resolves via
+        `ActiveSupport::TimeZone[]`. Success returns the same shape as GET
+        with `needs_time_zone_setup` false. Empty body, unknown keys, null,
+        blank, non-string, and unresolvable values are 422. Does not
+        rewrite timetable zones or absolute timestamps.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudywellSettingsPatch"
+            example:
+              time_zone: Europe/Rome
+      responses:
+        "200":
+          description: Updated zone. Setup is complete.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/studywell/courses:
+    get:
+      tags: [StudyWell]
+      operationId: listStudywellCourses
+      summary: List owned courses
+      description: |
+        The caller's courses in ascending `id` order. Page size is 100.
+        `next_page` is the next integer page, or `null` when this page is
+        not truncated. Archived courses are excluded unless
+        `include_archived` is the string `true`. `include_archived` accepts
+        exactly `true` or `false`; any other present value is 422; omitted
+        is `false`. Unknown query keys are ignored. A non-positive or
+        non-integer `page` is 422.
+      parameters:
+        - $ref: "#/components/parameters/StudywellPage"
+        - $ref: "#/components/parameters/StudywellIncludeArchived"
+      responses:
+        "200":
+          description: One page of courses.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellCourseList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [StudyWell]
+      operationId: createStudywellCourse
+      summary: Create a course
+      description: |
+        Creates an owned course. `name` is required and non-blank.
+        Optional strings and dates may be null. `colour`, when present, is
+        a six-digit `#RRGGBB` value. Dates are ISO calendar dates and
+        ordered when both present. Dates do not archive or reschedule.
+        `archived_at` is server-owned and not settable. Unknown body keys
+        are 422.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudywellCourseCreate"
+            example:
+              name: Algorithms
+              code: CS101
+              term_label: Fall 2026
+              colour: "#336699"
+              active_from: "2026-09-01"
+              active_until: "2026-12-15"
+      responses:
+        "201":
+          description: Course created. `lock_version` starts at 0.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellCourse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/studywell/courses/{id}:
+    parameters:
+      - $ref: "#/components/parameters/StudywellCourseId"
+    get:
+      tags: [StudyWell]
+      operationId: getStudywellCourse
+      summary: Show a course
+      description: Local record id. Another user's course is 404, not 403. Archived courses are still readable by id.
+      responses:
+        "200":
+          description: The course.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellCourse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [StudyWell]
+      operationId: patchStudywellCourse
+      summary: Update a course
+      description: |
+        Merge semantics. Requires integer `lock_version` from the last
+        read (0 is valid). Stale versions are 409 with no mutation.
+        Omitted fields are preserved; explicit JSON `null` clears a
+        nullable field. `name` cannot be cleared. Boolean `archived`
+        sets or clears server-owned `archived_at` (re-archiving keeps the
+        original timestamp). Empty updates, unknown keys, wrong types, and
+        invalid combinations are 422 before filtering. Owner ids and
+        `archived_at` are not writable.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudywellCoursePatch"
+      responses:
+        "200":
+          description: Updated course.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellCourse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [StudyWell]
+      operationId: deleteStudywellCourse
+      summary: Delete a course
+      description: |
+        Requires integer `lock_version` in the JSON body. Stale versions
+        are 409 with no mutation. While obligations exist, 409 `conflict`
+        with `details.obligations_count` (integer) and no cascade. Another
+        user's course is 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudywellLockVersion"
+            example:
+              lock_version: 0
+      responses:
+        "204":
+          description: Deleted. Empty body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StudywellCourseDeleteConflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/studywell/courses/{course_id}/obligations:
+    parameters:
+      - $ref: "#/components/parameters/StudywellCourseIdInPath"
+    get:
+      tags: [StudyWell]
+      operationId: listStudywellObligations
+      summary: List obligations in a course
+      description: |
+        Obligations of an owned course in ascending `id` order. Page size
+        is 100. `next_page` is the next integer page, or `null` when this
+        page is not truncated. `status` accepts exactly `open`, `done`, or
+        `all`; omitted defaults to `all`. Any other present `status` is
+        422. Unknown query keys are ignored. Another user's course is 404.
+        Creating and listing inside an archived course is allowed.
+      parameters:
+        - $ref: "#/components/parameters/StudywellPage"
+        - $ref: "#/components/parameters/StudywellObligationStatus"
+      responses:
+        "200":
+          description: One page of obligations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellObligationList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    post:
+      tags: [StudyWell]
+      operationId: createStudywellObligation
+      summary: Create an obligation
+      description: |
+        Creates an obligation in an owned course. Owner comes from the
+        bearer; course from the route. `kind` is `assignment`, `exam`, or
+        `study_task` and is immutable after creation. Title is required
+        and non-blank. Status defaults to `open`. Creating inside an
+        archived course is allowed.
+
+        Timing is kind-specific. Timestamps require an explicit offset or
+        `Z`; naive timestamps are 422. Assignments accept optional
+        `due_at` and reject an interval. Exams reject `due_at` and accept
+        `starts_at`/`ends_at` both absent or both present. Study tasks
+        accept both optionally. A partial interval is 422. `ends_at` must
+        be strictly after `starts_at`. A study task's planned end must not
+        be after its `due_at` when both are supplied.
+
+        Importance is nullable `low`/`normal`/`high` with no course
+        inheritance. `estimated_minutes` is a nullable positive integer
+        total. `progress_percent` is a nullable integer 0–100. Unknown
+        body keys are 422.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudywellObligationCreate"
+            example:
+              kind: assignment
+              title: Problem set 1
+              due_at: "2026-10-01T17:00:00+02:00"
+              importance: normal
+              estimated_minutes: 120
+              progress_percent: 0
+      responses:
+        "201":
+          description: Obligation created. `lock_version` starts at 0.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellObligation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /api/v1/studywell/obligations/{id}:
+    parameters:
+      - $ref: "#/components/parameters/StudywellObligationId"
+    get:
+      tags: [StudyWell]
+      operationId: getStudywellObligation
+      summary: Show an obligation
+      description: Local record id. Another user's obligation is 404, not 403.
+      responses:
+        "200":
+          description: The obligation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellObligation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [StudyWell]
+      operationId: patchStudywellObligation
+      summary: Update an obligation
+      description: |
+        Merge semantics. Requires integer `lock_version` from the last
+        read (0 is valid). Stale versions are 409 with no mutation.
+        Mutable create fields except `kind`; submitting `kind` is 422
+        `kind is unknown`. `status` is `open` or `done`. Done sets
+        server-owned `completed_at`; reopen clears it. Progress 100 does
+        not complete, and `done` does not require progress 100.
+
+        Omitted fields are preserved; explicit JSON `null` clears a
+        nullable field. Paired timing fields are both supplied or both
+        cleared when changing the interval. A study task's planned end
+        must not be after its `due_at` when both are supplied. Owner,
+        course, `completed_at`, and `remaining_minutes` are not writable.
+        Empty updates, unknown keys, wrong types, and invalid combinations
+        are 422 before filtering.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudywellObligationPatch"
+      responses:
+        "200":
+          description: Updated obligation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudywellObligation"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    delete:
+      tags: [StudyWell]
+      operationId: deleteStudywellObligation
+      summary: Delete an obligation
+      description: |
+        Explicit deletion, not completion. Requires integer `lock_version`
+        in the JSON body. Stale versions are 409 with no mutation. Another
+        user's obligation is 404.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudywellLockVersion"
+            example:
+              lock_version: 0
+      responses:
+        "204":
+          description: Deleted. Empty body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -905,6 +1284,60 @@ components:
       description: Opaque token from a previous `next_page_token`. Repeat the same `from`/`to`.
       schema:
         type: string
+    StudywellPage:
+      name: page
+      in: query
+      required: false
+      description: |
+        1-based page. Defaults to 1 when omitted. Must be a positive
+        integer (JSON integer, or a string matching `[1-9][0-9]*` —
+        `"01"` and `"0"` are 422). Other query parameters are ignored.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    StudywellIncludeArchived:
+      name: include_archived
+      in: query
+      required: false
+      description: |
+        Exactly the strings `true` or `false`. Omitted is `false`. Any
+        other present value is 422.
+      schema:
+        type: string
+        enum: ["true", "false"]
+    StudywellObligationStatus:
+      name: status
+      in: query
+      required: false
+      description: |
+        Exactly `open`, `done`, or `all`. Omitted defaults to `all`. Any
+        other present value is 422.
+      schema:
+        type: string
+        enum: [open, done, all]
+        default: all
+    StudywellCourseId:
+      name: id
+      in: path
+      required: true
+      description: Local course record id. Another user's course is 404.
+      schema:
+        type: integer
+    StudywellCourseIdInPath:
+      name: course_id
+      in: path
+      required: true
+      description: Local course record id. Another user's course is 404.
+      schema:
+        type: integer
+    StudywellObligationId:
+      name: id
+      in: path
+      required: true
+      description: Local obligation record id. Another user's obligation is 404.
+      schema:
+        type: integer
 
   schemas:
     ErrorEnvelope:
@@ -938,7 +1371,9 @@ components:
               description: |
                 Validation errors use field → list of strings. Other codes
                 usually send `{}`. `local_save_failed` sets
-                `provider_event_id` to a string (not a list).
+                `provider_event_id` to a string (not a list). Deleting a
+                course that still has obligations is 409 `conflict` with
+                `obligations_count` as an integer (not a list).
               additionalProperties: true
 
     User:
@@ -1004,6 +1439,14 @@ components:
         time_zone:
           type: string
           nullable: true
+          description: |
+            Optional. A present, non-blank value must resolve via
+            `ActiveSupport::TimeZone[]`. The judged value is the merged
+            request parameter (query string overrides body), matching
+            what is persisted. Invalid present values are 422
+            `details.time_zone`. A non-string value is 422, not treated
+            as absent. Absent or blank is accepted and stored as
+            submitted (blank is not normalised to null).
         locale:
           type: string
           default: en
@@ -1482,6 +1925,414 @@ components:
         source_entity_id:
           type: string
 
+    StudywellSettings:
+      type: object
+      additionalProperties: false
+      required: [time_zone, needs_time_zone_setup]
+      properties:
+        time_zone:
+          type: string
+          nullable: true
+          description: Stored value as-is, including blank or unresolvable legacy values.
+        needs_time_zone_setup:
+          type: boolean
+          description: True when the stored value is blank or does not resolve via `ActiveSupport::TimeZone[]`.
+
+    StudywellSettingsPatch:
+      type: object
+      additionalProperties: false
+      required: [time_zone]
+      description: Unknown keys are 422. Empty object is 422.
+      properties:
+        time_zone:
+          type: string
+          description: |
+            Named zone resolvable via `ActiveSupport::TimeZone[]`. Null,
+            blank, non-string, and unresolvable values are 422.
+
+    StudywellCourse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - code
+        - term_label
+        - colour
+        - active_from
+        - active_until
+        - archived_at
+        - lock_version
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+        term_label:
+          type: string
+          nullable: true
+        colour:
+          type: string
+          nullable: true
+          description: Six-digit `#RRGGBB` when set.
+        active_from:
+          type: string
+          format: date
+          nullable: true
+        active_until:
+          type: string
+          format: date
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Server-owned. Null when the course is not archived.
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Optimistic version. Starts at 0.
+
+    StudywellCourseList:
+      type: object
+      additionalProperties: false
+      required: [items, next_page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudywellCourse"
+        next_page:
+          type: integer
+          nullable: true
+          description: Next 1-based page, or `null` if this page is complete.
+
+    StudywellCourseCreate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      description: Unknown keys (including `archived`, `archived_at`, `lock_version`, `user_id`) are 422.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: |
+            Must contain at least one character outside `String#strip`
+            (NUL and ASCII whitespace U+0000, U+0009–U+000D, U+0020) and
+            at least one character outside Unicode whitespace (`blank?`).
+            The `pattern` is a partial machine check of the first conjunct
+            only; the server additionally rejects values consisting solely
+            of Unicode whitespace (NBSP, ideographic space), which the
+            pattern does not capture. Mixed NUL+NBSP is accepted.
+        code:
+          type: string
+          nullable: true
+        term_label:
+          type: string
+          nullable: true
+        colour:
+          type: string
+          nullable: true
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Six-digit `#RRGGBB` when present. Null is accepted. Any other value is 422.
+        active_from:
+          type: string
+          format: date
+          nullable: true
+          description: ISO calendar date `YYYY-MM-DD`. Must not be after `active_until` when both are present.
+        active_until:
+          type: string
+          format: date
+          nullable: true
+          description: ISO calendar date `YYYY-MM-DD`.
+
+    StudywellCoursePatch:
+      type: object
+      additionalProperties: false
+      required: [lock_version]
+      minProperties: 2
+      description: |
+        Merge document. `lock_version` is required. At least one mutable
+        field besides `lock_version` must be present; only `lock_version`
+        is 422. Unknown keys are 422. Omitted fields are preserved. JSON
+        `null` clears a nullable field.
+      properties:
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Last-read version. JSON integer, including 0. Strings are 422.
+        name:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: |
+            Must contain at least one character outside `String#strip`
+            (NUL and ASCII whitespace U+0000, U+0009–U+000D, U+0020) and
+            at least one character outside Unicode whitespace (`blank?`).
+            Cannot be cleared. The `pattern` is a partial machine check of
+            the first conjunct only; the server additionally rejects
+            values consisting solely of Unicode whitespace (NBSP,
+            ideographic space), which the pattern does not capture. Mixed
+            NUL+NBSP is accepted.
+        code:
+          type: string
+          nullable: true
+        term_label:
+          type: string
+          nullable: true
+        colour:
+          type: string
+          nullable: true
+          pattern: '^#[0-9A-Fa-f]{6}$'
+        active_from:
+          type: string
+          format: date
+          nullable: true
+        active_until:
+          type: string
+          format: date
+          nullable: true
+        archived:
+          type: boolean
+          description: True archives (sets `archived_at` if unset). False clears `archived_at`. Null is 422.
+
+    StudywellLockVersion:
+      type: object
+      additionalProperties: false
+      required: [lock_version]
+      description: Unknown keys are 422. Empty body is 422.
+      properties:
+        lock_version:
+          type: integer
+          minimum: 0
+          description: Last-read version. JSON integer, including 0. Strings are 422.
+
+    StudywellObligation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - course_id
+        - kind
+        - title
+        - due_at
+        - starts_at
+        - ends_at
+        - importance
+        - estimated_minutes
+        - progress_percent
+        - notes
+        - status
+        - completed_at
+        - lock_version
+        - remaining_minutes
+      properties:
+        id:
+          type: integer
+        course_id:
+          type: integer
+        kind:
+          type: string
+          enum: [assignment, exam, study_task]
+        title:
+          type: string
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        importance:
+          type: string
+          nullable: true
+          enum: [low, normal, high, null]
+          description: Nullable. No course inheritance.
+        estimated_minutes:
+          type: integer
+          nullable: true
+          minimum: 1
+          description: Optional positive integer total minutes.
+        progress_percent:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [open, done]
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Server-owned. Set on explicit `done`; cleared on reopen.
+        lock_version:
+          type: integer
+          minimum: 0
+        remaining_minutes:
+          type: integer
+          nullable: true
+          minimum: 0
+          description: |
+            Rounded-up uncompleted fraction of `estimated_minutes`, only
+            when both estimate and progress are known. Null otherwise —
+            never substituted with zero. Completion does not enter the
+            calculation.
+
+    StudywellObligationList:
+      type: object
+      additionalProperties: false
+      required: [items, next_page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudywellObligation"
+        next_page:
+          type: integer
+          nullable: true
+          description: Next 1-based page, or `null` if this page is complete.
+
+    StudywellObligationCreate:
+      type: object
+      additionalProperties: false
+      required: [kind, title]
+      description: |
+        Unknown keys (including `status`, `completed_at`, `remaining_minutes`,
+        `lock_version`, `user_id`, `course_id`) are 422.
+      properties:
+        kind:
+          type: string
+          enum: [assignment, exam, study_task]
+          description: |
+            One of `assignment`, `exam`, or `study_task`. Immutable after
+            creation; submitting `kind` on PATCH is 422 `kind is unknown`.
+        title:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: |
+            Must contain at least one character outside `String#strip`
+            (NUL and ASCII whitespace U+0000, U+0009–U+000D, U+0020) and
+            at least one character outside Unicode whitespace (`blank?`).
+            The `pattern` is a partial machine check of the first conjunct
+            only; the server additionally rejects values consisting solely
+            of Unicode whitespace (NBSP, ideographic space), which the
+            pattern does not capture. Mixed NUL+NBSP is accepted.
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Offset or `Z` required. Not accepted for `exam`. For a study
+            task, a planned `ends_at` must not be after this target when
+            both are supplied.
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Offset or `Z` required. Not accepted for `assignment`. Paired with `ends_at`.
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Offset or `Z` required. Strictly after `starts_at`. For a
+            study task, must not be after `due_at` when both are supplied.
+        importance:
+          type: string
+          nullable: true
+          enum: [low, normal, high, null]
+        estimated_minutes:
+          type: integer
+          nullable: true
+          minimum: 1
+        progress_percent:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+        notes:
+          type: string
+          nullable: true
+
+    StudywellObligationPatch:
+      type: object
+      additionalProperties: false
+      required: [lock_version]
+      minProperties: 2
+      description: |
+        Merge document. `lock_version` is required. At least one mutable
+        field besides `lock_version` must be present. `kind` is not in
+        this set; submitting it is 422 `kind is unknown`.
+      properties:
+        lock_version:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          minLength: 1
+          pattern: '[^\u0000\u0009-\u000D\u0020]'
+          description: |
+            Must contain at least one character outside `String#strip`
+            (NUL and ASCII whitespace U+0000, U+0009–U+000D, U+0020) and
+            at least one character outside Unicode whitespace (`blank?`).
+            Cannot be cleared. The `pattern` is a partial machine check of
+            the first conjunct only; the server additionally rejects
+            values consisting solely of Unicode whitespace (NBSP,
+            ideographic space), which the pattern does not capture. Mixed
+            NUL+NBSP is accepted.
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            For a study task, a planned `ends_at` must not be after this
+            target when both are supplied.
+        starts_at:
+          type: string
+          format: date-time
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            For a study task, must not be after `due_at` when both are
+            supplied.
+        importance:
+          type: string
+          nullable: true
+          enum: [low, normal, high, null]
+        estimated_minutes:
+          type: integer
+          nullable: true
+          minimum: 1
+        progress_percent:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 100
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [open, done]
+          description: Explicit completion or reopen. Null is 422.
+
   responses:
     Unauthorized:
       description: |
@@ -1531,6 +2382,20 @@ components:
               code: conflict
               message: Conflict
               details: {}
+    StudywellCourseDeleteConflict:
+      description: |
+        Stale `lock_version` (details `{}`) or the course still has
+        obligations (`details.obligations_count` is an integer).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: conflict
+              message: Conflict
+              details:
+                obligations_count: 2
     IntegrationNotConnected:
       description: Google is not connected for this caller (HTTP 409).
       content:

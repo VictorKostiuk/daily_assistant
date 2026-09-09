@@ -87,6 +87,20 @@ RSpec.describe "Admin::Users", type: :request do
       expect(member.status).to eq("suspended")
     end
 
+    it "can still change role on an account whose stored time zone is invalid" do
+      admin = create(:user, :admin)
+      member = create(:user)
+      member.update_column(:time_zone, "Not/AZone")
+      sign_in admin
+
+      patch admin_user_path(member), params: { user: { role: "moderator" } }
+
+      expect(response).to redirect_to(admin_user_path(member))
+      member.reload
+      expect(member.role).to eq("moderator")
+      expect(member.time_zone).to eq("Not/AZone")
+    end
+
     it "records an audit log entry with the actor, target, and changed fields" do
       admin = create(:user, :admin)
       member = create(:user)

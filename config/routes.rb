@@ -29,6 +29,23 @@ Rails.application.routes.draw do
       post "calendar/events", to: "calendar_events#create"
       patch "calendar/events/:id", to: "calendar_events#update", constraints: { id: /[^\/]+/ }
       delete "calendar/events/:id", to: "calendar_events#destroy", constraints: { id: /[^\/]+/ }
+
+      namespace :studywell do
+        get "settings", to: "settings#show"
+        patch "settings", to: "settings#update"
+
+        get "courses", to: "courses#index"
+        post "courses", to: "courses#create"
+        get "courses/:id", to: "courses#show"
+        patch "courses/:id", to: "courses#update"
+        delete "courses/:id", to: "courses#destroy"
+
+        get "courses/:course_id/obligations", to: "obligations#index"
+        post "courses/:course_id/obligations", to: "obligations#create"
+        get "obligations/:id", to: "obligations#show"
+        patch "obligations/:id", to: "obligations#update"
+        delete "obligations/:id", to: "obligations#destroy"
+      end
     end
   end
 

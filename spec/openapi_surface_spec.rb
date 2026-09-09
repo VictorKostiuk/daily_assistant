@@ -14,7 +14,7 @@ RSpec.describe "OpenAPI /api/v1 surface" do
       path = route.path.spec.to_s.sub(/\(.:format\)\z/, "")
       next unless path.start_with?("/api/v1")
 
-      path = path.gsub(":id", "{id}")
+      path = path.gsub(/:(\w+)/) { "{#{Regexp.last_match(1)}}" }
       verbs_for(route).each { |verb| set << [ path, verb ] }
     end
   end
@@ -51,5 +51,31 @@ RSpec.describe "OpenAPI /api/v1 surface" do
       "documented but not exposed:\n#{format_ops(documented_but_not_exposed)}"
     expect(exposed_but_not_documented).to be_empty,
       "exposed but not documented:\n#{format_ops(exposed_but_not_documented)}"
+  end
+
+  it "documents include_archived as the strings true and false" do
+    spec = YAML.safe_load_file(Rails.root.join("docs/openapi.yaml"))
+    enum = spec.dig("components", "parameters", "StudywellIncludeArchived", "schema", "enum")
+
+    expect(enum).to all(be_a(String))
+    expect(enum).to eq(%w[true false])
+  end
+
+  it "keeps the partial-pattern caveat present on StudyWell name and title descriptions" do
+    spec = YAML.safe_load_file(Rails.root.join("docs/openapi.yaml"))
+    [
+      [ "StudywellCourseCreate", "name" ],
+      [ "StudywellCoursePatch", "name" ],
+      [ "StudywellObligationCreate", "title" ],
+      [ "StudywellObligationPatch", "title" ]
+    ].each do |schema_name, field|
+      property = spec.dig("components", "schemas", schema_name, "properties", field)
+      expect(property["minLength"]).to eq(1)
+      expect(property["pattern"]).to eq('[^\u0000\u0009-\u000D\u0020]')
+      text = property.fetch("description").to_s.gsub(/\s+/, " ")
+      message = "#{schema_name}.#{field}: the partial-pattern caveat is missing from the description (this example does not judge whether the description is true)"
+      expect(text).to include("partial machine check of the first conjunct only"), message
+      expect(text).to include("which the pattern does not capture"), message
+    end
   end
 end
