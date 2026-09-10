@@ -24,6 +24,7 @@ module Api
         with: :render_too_many_requests
 
       def signup
+        InputValidator.signup_time_zone!(request.request_parameters.merge(request.query_parameters))
         user = User.new(signup_params)
         if user.save
           render json: {

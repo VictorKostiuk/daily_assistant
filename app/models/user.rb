@@ -20,6 +20,13 @@ class User < ApplicationRecord
 
   has_many :calendar_events, dependent: :destroy
   has_many :reminders, dependent: :destroy
+  has_many :studywell_obligations,
+           class_name: "Studywell::Obligation",
+           dependent: :destroy
+  has_many :studywell_courses,
+           class_name: "Studywell::Course",
+           dependent: :destroy
+
   has_many :scheduled_actions, dependent: :destroy
   has_many :shortcuts, dependent: :destroy
   has_many :action_executions, dependent: :destroy

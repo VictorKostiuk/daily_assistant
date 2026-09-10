@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_06_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_09_120000) do
   create_table "action_executions", force: :cascade do |t|
     t.string "action_type", null: false
     t.datetime "completed_at"
@@ -456,6 +456,42 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_140000) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "studywell_courses", force: :cascade do |t|
+    t.date "active_from"
+    t.date "active_until"
+    t.datetime "archived_at"
+    t.string "code"
+    t.string "colour"
+    t.datetime "created_at", null: false
+    t.integer "lock_version", default: 0, null: false
+    t.string "name", null: false
+    t.string "term_label"
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["user_id"], name: "index_studywell_courses_on_user_id"
+  end
+
+  create_table "studywell_obligations", force: :cascade do |t|
+    t.datetime "completed_at"
+    t.integer "course_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "due_at"
+    t.datetime "ends_at"
+    t.integer "estimated_minutes"
+    t.integer "importance"
+    t.integer "kind", null: false
+    t.integer "lock_version", default: 0, null: false
+    t.text "notes"
+    t.integer "progress_percent"
+    t.datetime "starts_at"
+    t.integer "status", default: 0, null: false
+    t.string "title", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["course_id"], name: "index_studywell_obligations_on_course_id"
+    t.index ["user_id"], name: "index_studywell_obligations_on_user_id"
+  end
+
   create_table "support_conversations", force: :cascade do |t|
     t.integer "assigned_moderator_id"
     t.datetime "closed_at"
@@ -609,6 +645,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_06_140000) do
   add_foreign_key "solid_queue_ready_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
+  add_foreign_key "studywell_courses", "users"
+  add_foreign_key "studywell_obligations", "studywell_courses", column: "course_id"
+  add_foreign_key "studywell_obligations", "users"
   add_foreign_key "support_conversations", "users"
   add_foreign_key "support_conversations", "users", column: "assigned_moderator_id"
   add_foreign_key "support_messages", "support_conversations"

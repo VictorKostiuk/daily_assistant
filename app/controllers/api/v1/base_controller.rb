@@ -5,6 +5,7 @@ module Api
       before_action :authenticate_api_user!
 
       rescue_from ActiveRecord::RecordNotFound, with: :render_not_found
+      rescue_from ActiveRecord::StaleObjectError, with: :render_conflict
       rescue_from SourceMetadata::Invalid, with: :render_source_metadata_invalid
       rescue_from Api::V1::InputValidator::Error, with: :render_input_invalid
 
